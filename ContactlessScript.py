@@ -5,9 +5,18 @@ import time
 import math
 import os
 
+#parameter reading function 
+def get_parameters():
+    parameter_data = np.genfromtxt(parameter_path)
+    return (parameter_data[0,2],parameter_data[1,2],parameter_data[2,2])
+    #The format of the output is (RampRate, FinalTemp, Status)
+    #status is an int [0,2]
+    # No Ramp = 0
+    # Ramp = 1
+    # Stop = 2
+
 save_path = ('C:\\Users\\mpms\\Desktop\\Contactless Probe\\RawData')
 parameter_path = 'C:\\Users\\mpms\\Desktop\\Contactless Probe\\parameters.dat'
-
 
 avg_num = 4 #this is the number times the lock in will get each voltage before the average is reported
 
@@ -17,42 +26,16 @@ filename = file_input + ".dat"
 completeName = os.path.join(save_path, filename)
 
 file = open(completeName, "a")
-file.write("Time (sec)" + "\t" + "T (K)" + "\t" + "Vx (V)" + "\t" + "Vy (V)" + "\t" + "Th" + "\t" + "V")
+file.write("Time (sec)" + "\t" + "T (K)" + "\t" + "Vx (V)" + "\t" + "Vy (V)")
 file.write("\n")
 file = completeName
 
 #open instaments
 rm = pyvisa.ResourceManager()
-
 ls = rm.open_resource('GPIB0::16::INSTR')#this is the lake shore temp controller
 time.sleep(0.1)
 srs = rm.open_resource('GPIB0::13::INSTR')#this is the lock-in
 time.sleep(0.1)
-
-#parameter reading class   
-class Parameter_Reader:
-    def rrate():
-        RT1 = np.genfromtxt(parameter_path)
-        rrate = RT1[0,2]
-        del RT1
-        return rrate
-
-    def finalT():
-        RT1 = np.genfromtxt(parameter_path)
-        finalT = RT1[1,2]
-        del RT1
-        return finalT
-    
-    def Stop_flag():
-        RT1 = np.genfromtxt(parameter_path)
-        Stop_flag = RT1[2,2]
-        del RT1
-        return Stop_flag
-
-#get intitial parameters
-rrate = Parameter_Reader.rrate()
-finalT = Parameter_Reader.finalT()
-Stop_flag = Parameter_Reader.Stop_flag()
 
 #initialize plots
 fig = plt.figure(constrained_layout = True)
@@ -67,46 +50,46 @@ ax.set_ylabel('Temperature (K)')
 bx.set_xlabel('Time (s)')
 bx.set_ylabel('Heater Percent (%)')
 cx.set_xlabel('Time (s)')
-cx.set_ylabel('Vx (?V)')
+cx.set_ylabel('Vx (mV)')
 dx.set_xlabel('Time (s)')
-dx.set_ylabel('Vx (?V)')
+dx.set_ylabel('Vx (mV)')
 
 #set intial lakeshore parameters
-ls.write('RAMP 1,1,%.2f' % rrate)
+parameters = get_parameters()
+ls.write('RAMP 1,1,%.2f' % parameters[0])
 time.sleep(0.05)
-ls.write('SETP 1,%.2f' % finalT)
+ls.write('SETP 1,%.2f' % parameters[1])
 time.sleep(0.05)
 
 
 values = {}
+intitial_time = time.perf_counter()#get intitial time
 
 #main loop
-while Stop_flag == 0:
-    time.sleep(0.05)
-    
-    del Stop_flag #all local variables are deleted to prevent data pileup in secondary memory that slows processes down
-    
-    values['time'] = time.perf_counter()
+while parameters[2] != 2:
+    #update parameters each interation
+    del parameters #all local variables are deleted to prevent data pileup in secondary memory that slow processes down
+    parameters = get_parameters()
 
-    rrate = Parameter_Reader.rrate()
-    finalT = Parameter_Reader.finalT()
-    Stop_flag = Parameter_Reader.Stop_flag()
-
+    values['time'] = time.perf_counter()-intitial_time
     values['Temp'] = float(ls.query('KRDG? a'))
-    if finalT <= values['Temp']:
-        Stop_flag = 1
-        print('all done')
-
     time.sleep(0.05)
+    
+
+    
     # values['T_sample'] = float(ls.query('KRDG? b'))
     # time.sleep(0.05)
     values['heater'] = float(ls.query('HTR? 1'))
     time.sleep(0.05)
-    ls.write('RAMP 1,1,%.2f' % rrate)
-    time.sleep(0.05)
-    ls.write('SETP 1,%.2f' % finalT)
+
+    ls.write('RAMP 1,1,%.2f' % parameters[0])
     time.sleep(0.05)
 
+    if parameters[2] == 1: #ramp mode
+        ls.write('SETP 1,%.2f' % parameters[1])#this sets the setpoint to the final desired temp
+    elif parameters[2] == 0: #ramp mode
+        ls.write('SETP 1,%.2f' % 1)#this sets the setpoint to 1 Kelvin, which turns off the heating
+    time.sleep(0.05)
     vx=0
     vy=0
     for i in range(avg_num):
@@ -116,12 +99,15 @@ while Stop_flag == 0:
         vy += float(p1[1])/avg_num
         del p, p1
         time.sleep(0.1)
+
+    if parameters[1] <= values['Temp']:
+        parameters[2] = 2 #stop condition
     values['Vx'] = vx
     values['Vy'] = vy
     ax.plot(values['time'],values['Temp'],'bo--')
     bx.plot(values['time'],values['heater'],'ro--')
-    cx.plot(values['time'],values['Vx'],'bo--')
-    dx.plot(values['time'],values['Vy'],'bo--')
+    cx.plot(values['time'],1000*values['Vx'],'bo--')
+    dx.plot(values['time'],1000*values['Vy'],'bo--')
    
     plt.pause(0.1) #this displays the graph
     time.sleep(0.1)
@@ -136,8 +122,8 @@ while Stop_flag == 0:
     del vx, vy#, vr, vt
     file.close()
 # print("measurement_done")
-finalT = Parameter_Reader.finalT()
-ls.write('SETP 1,%.2f' % 273)
+
+ls.write('SETP 1,%.2f' % 1)#turn off the heater
 time.sleep(0.05)
 ls.close()
 srs.close()
