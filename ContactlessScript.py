@@ -47,22 +47,24 @@ class Parameter_Reader:
         del RT1
         return Stop_flag
 
+
 #get intitial parameters
 rrate = Parameter_Reader.rrate()
 finalT = Parameter_Reader.finalT()
 Stop_flag = Parameter_Reader.Stop_flag()
 
 fig = plt.figure(constrained_layout = True)
-ax = fig.add_subplot(1, 2, 1)
-bx = fig.add_subplot(1, 2, 2)
+ax = fig.add_subplot(1, 3, 1)
+bx = fig.add_subplot(1, 3, 2)
+cx = fig.add_subplot(1, 3, 3)
 
 
-TA_temp = ls.query('KRDG? a')
-TA = float(TA_temp)
+
+TA = float(ls.query('KRDG? a'))
 time.sleep(0.05)
-TB_temp = ls.query('KRDG? b')
-TB = float(TB_temp)
+TB = float(ls.query('KRDG? b'))
 time.sleep(0.05)
+
 ls.write('RAMP 1,1,%.2f' % rrate)
 time.sleep(0.05)
 ls.write('SETP 1,%.2f' % finalT)
@@ -145,7 +147,7 @@ while Stop_flag == 0:
     file.flush()
     time.sleep(0.1)
 
-    del time1,TA_temp,TA, TB_temp,TB, vx_final, vr_final, vy_final, vt_final, values['time'],values['T'],values['T_sample'],values['R'],values['Th'], values['V_total']
+    del time1,TA, TB, vx_final, vr_final, vy_final, vt_final, values['time'],values['T'],values['T_sample'],values['R'],values['Th'], values['V_total']
     del xa,ya,xb,yb,vx, vy, vr, vt
     file.close()
    
