@@ -59,7 +59,7 @@ fig = plt.figure(constrained_layout = True)
 ax = fig.add_subplot(2, 2, 1)
 bx = fig.add_subplot(2, 2, 2)
 cx = fig.add_subplot(2, 2, 3)
-dx = fig.add_subplot(2, 2, 3)
+dx = fig.add_subplot(2, 2, 4)
 fig.suptitle('Resistance measurement')
 #fig.suptitle('Resistivity measurement', fontname = "Times New Roman", fontweight = 'bold', fontsize = 20)
 ax.set_xlabel('Time (s)')
@@ -95,6 +95,7 @@ while Stop_flag == 0:
     values['Temp'] = float(ls.query('KRDG? a'))
     if finalT <= values['Temp']:
         Stop_flag = 1
+        print('all done')
 
     time.sleep(0.05)
     # values['T_sample'] = float(ls.query('KRDG? b'))
@@ -106,7 +107,8 @@ while Stop_flag == 0:
     ls.write('SETP 1,%.2f' % finalT)
     time.sleep(0.05)
 
-    vx, vy=0
+    vx=0
+    vy=0
     for i in range(avg_num):
         p = srs.query('SNAPD?')
         p1 = p.split(',') #this is [Vx, Vy, Resistance, Theta]
@@ -134,6 +136,9 @@ while Stop_flag == 0:
     del vx, vy#, vr, vt
     file.close()
 # print("measurement_done")
+finalT = Parameter_Reader.finalT()
+ls.write('SETP 1,%.2f' % 273)
+time.sleep(0.05)
 ls.close()
 srs.close()
 #sr.close()
