@@ -8,7 +8,7 @@ import os
 #parameter reading function 
 def get_parameters():
     parameter_data = np.genfromtxt(parameter_path)
-    return (parameter_data[0,2],parameter_data[1,2],parameter_data[2,2])
+    return [parameter_data[0,2],parameter_data[1,2],parameter_data[2,2]]
     #The format of the output is (RampRate, FinalTemp, Status)
     #status is an int [0,2]
     # No Ramp = 0
@@ -43,15 +43,15 @@ ax = fig.add_subplot(2, 2, 1)
 bx = fig.add_subplot(2, 2, 2)
 cx = fig.add_subplot(2, 2, 3)
 dx = fig.add_subplot(2, 2, 4)
-fig.suptitle('Resistance measurement')
+#fig.suptitle('Resistance measurement')
 #fig.suptitle('Resistivity measurement', fontname = "Times New Roman", fontweight = 'bold', fontsize = 20)
-ax.set_xlabel('Time (s)')
+ax.set_xlabel('Time (min)')
 ax.set_ylabel('Temperature (K)')
-bx.set_xlabel('Time (s)')
+bx.set_xlabel('Time (min)')
 bx.set_ylabel('Heater Percent (%)')
-cx.set_xlabel('Time (s)')
+cx.set_xlabel('Time (min)')
 cx.set_ylabel('Vx (mV)')
-dx.set_xlabel('Time (s)')
+dx.set_xlabel('Time (min)')
 dx.set_ylabel('Vx (mV)')
 
 #set intial lakeshore parameters
@@ -71,7 +71,7 @@ while parameters[2] != 2:
     del parameters #all local variables are deleted to prevent data pileup in secondary memory that slow processes down
     parameters = get_parameters()
 
-    values['time'] = time.perf_counter()-intitial_time
+    values['time'] = (time.perf_counter()-intitial_time)/60
     values['Temp'] = float(ls.query('KRDG? a'))
     time.sleep(0.05)
     
@@ -101,20 +101,21 @@ while parameters[2] != 2:
         time.sleep(0.1)
 
     if parameters[1] <= values['Temp']:
-        parameters[2] = 2 #stop condition
+        parameters[2] = 0 #stop ramping condition
     values['Vx'] = vx
     values['Vy'] = vy
     ax.plot(values['time'],values['Temp'],'bo--')
     bx.plot(values['time'],values['heater'],'ro--')
     cx.plot(values['time'],1000*values['Vx'],'bo--')
     dx.plot(values['time'],1000*values['Vy'],'bo--')
+    #ax.text(.1,.1,'Current Temp =' + str(values['Temp']) +'(K)')
    
     plt.pause(0.1) #this displays the graph
     time.sleep(0.1)
 
     #save data
     file = open(completeName, "a")
-    file.write(str(values['time']) + "\t" +  str(values['Temp']) + "\t" + str(values['Vx']) + "\t" + str(values['Vy'])+"\n")
+    file.write(str(60*values['time']) + "\t" +  str(values['Temp']) + "\t" + str(values['Vx']) + "\t" + str(values['Vy'])+"\n")
     file.flush()
     time.sleep(0.1)
 
