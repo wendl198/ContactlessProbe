@@ -88,7 +88,7 @@ while parameters[2] != 2:
     if parameters[2] == 1: #ramp mode
         ls.write('SETP 1,%.2f' % parameters[1])#this sets the setpoint to the final desired temp
     elif parameters[2] == 0: #ramp mode
-        ls.write('SETP 1,%.2f' % 1)#this sets the setpoint to 1 Kelvin, which turns off the heating
+        ls.write('SETP 1,%.2f' % 77.3)#this sets the setpoint to 1 Kelvin, which turns off the heating
     time.sleep(0.05)
     vx=0
     vy=0
@@ -100,7 +100,7 @@ while parameters[2] != 2:
         del p, p1
         time.sleep(0.1)
 
-    if parameters[1] <= values['Temp']:
+    if parameters[1] <= values['Temp'] and parameters[2] != 2:
         parameters[2] = 0 #stop ramping condition
     values['Vx'] = vx
     values['Vy'] = vy
@@ -108,6 +108,7 @@ while parameters[2] != 2:
     bx.plot(values['time'],values['heater'],'ro--')
     cx.plot(values['time'],1000*values['Vx'],'bo--')
     dx.plot(values['time'],1000*values['Vy'],'bo--')
+    ax.set_title('Setpoint ='+str(ls.query('SETP? 1'))[1:6],fontsize = 12)
     #ax.text(.1,.1,'Current Temp =' + str(values['Temp']) +'(K)')
    
     plt.pause(0.1) #this displays the graph
@@ -124,7 +125,7 @@ while parameters[2] != 2:
     file.close()
 # print("measurement_done")
 
-ls.write('SETP 1,%.2f' % 1)#turn off the heater
+ls.write('SETP 1,%.2f' % 273)#turn off the heater
 time.sleep(0.05)
 ls.close()
 srs.close()
