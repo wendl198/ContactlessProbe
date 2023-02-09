@@ -7,16 +7,32 @@ import os
 
 #parameter reading function 
 def get_parameters():
-    parameter_data = np.genfromtxt(parameter_path)
-    return [parameter_data[0,2],parameter_data[1,2],parameter_data[2,2]]
+    with open(parameter_path) as f:
+        lines = f.readlines()
+    del f
+    return [float(lines[0].split()[1]),float(lines[1].split()[1]),int(lines[2].split()[1])]
     #The format of the output is (RampRate, FinalTemp, Status)
+
+def change_status(new_status):
+    with open(parameter_path) as f:
+        lines = f.readlines()
+    del f
+    lines[2] = lines[2][:-1] + str(new_status)
+    file1 = open(parameter_path,"w")#write mode
+    file1.writelines(lines)
+    file1.close()
+    del file1, lines
     #status is an int [0,2]
     # No Ramp = 0
-    # Ramp = 1
-    # Stop = 2
+    # StartRamp = 1
+    # Ramp = 2
+    # Stop = 3
 
-save_path = ('C:\\Users\\mpms\\Desktop\\Contactless Probe\\RawData')
-parameter_path = 'C:\\Users\\mpms\\Desktop\\Contactless Probe\\parameters.dat'
+# save_path = ('C:\\Users\\mpms\\Desktop\\Contactless Probe\\RawData')
+# parameter_path = 'C:\\Users\\mpms\\Desktop\\Contactless Probe\\parameters.dat'
+
+save_path = 'C:/Users/blake/Documents/VSCode/Python/Greven/RawData'
+parameter_path = 'C:/Users/blake/Documents/VSCode/Python/Greven/parameters.txt'
 
 avg_num = 4 #this is the number times the lock in will get each voltage before the average is reported
 
@@ -26,9 +42,9 @@ filename = file_input + ".dat"
 completeName = os.path.join(save_path, filename)
 
 file = open(completeName, "a")
-file.write("Time (sec)" + "\t" + "T (K)" + "\t" + "Vx (V)" + "\t" + "Vy (V)")
-file.write("\n")
+file.write("Time (sec)" + "\t" + "T (K)" + "\t" + "Vx (V)" + "\t" + "Vy (V)"+"\n")
 file = completeName
+
 
 #open instaments
 rm = pyvisa.ResourceManager()
@@ -56,9 +72,9 @@ dx.set_ylabel('Vx (mV)')
 
 #set intial lakeshore parameters
 parameters = get_parameters()
-ls.write('RAMP 1,1,%.2f' % parameters[0])
+ls.write('RAMP 1,0,%.2f' % parameters[0]) #the ramping is intially off
 time.sleep(0.05)
-ls.write('SETP 1,%.2f' % parameters[1])
+# ls.write('SETP 1,%.2f' % parameters[1])
 time.sleep(0.05)
 
 
@@ -85,10 +101,18 @@ while parameters[2] != 2:
     ls.write('RAMP 1,1,%.2f' % parameters[0])
     time.sleep(0.05)
 
-    if parameters[2] == 1: #ramp mode
-        ls.write('SETP 1,%.2f' % parameters[1])#this sets the setpoint to the final desired temp
-    elif parameters[2] == 0: #ramp mode
-        ls.write('SETP 1,%.2f' % 77.3)#this sets the setpoint to 1 Kelvin, which turns off the heating
+    if parameters[2] == 0: #no ramp
+        ls.write('RAMP 1,0,%.2f' % parameters[0])# Turns off the heating
+
+    elif parameters[2] == 1: #begin ramp mode
+        ls.write('RAMP 1,1,%.2f' % parameters[0])
+        time.sleep(0.05)
+        ls.write('SETP 1,%.2f' % values['Temp'])#this sets the setpoint to the final desired temp
+        change_status(2)
+    
+    elif parameters[2] == 2: #ramp mode
+        ls.write('RAMP 1,1,%.2f' % parameters[0])
+
     time.sleep(0.05)
     vx=0
     vy=0
@@ -101,7 +125,9 @@ while parameters[2] != 2:
         time.sleep(0.1)
 
     if parameters[1] <= values['Temp'] and parameters[2] != 2:
-        parameters[2] = 0 #stop ramping condition
+        change_status(0) #stop ramping condition
+        del parameters
+        parameters = get_parameters()
     values['Vx'] = vx
     values['Vy'] = vy
     ax.plot(values['time'],values['Temp'],'bo--')
@@ -118,16 +144,15 @@ while parameters[2] != 2:
     file = open(completeName, "a")
     file.write(str(60*values['time']) + "\t" +  str(values['Temp']) + "\t" + str(values['Vx']) + "\t" + str(values['Vy'])+"\n")
     file.flush()
+    file.close()
     time.sleep(0.1)
 
     del values['time'],values['Temp'],values['Vx'],values['Vy'],values['heater']#,values['T_sample'],values['R'],values['Th'], values['V_total']
     del vx, vy#, vr, vt
-    file.close()
-# print("measurement_done")
 
-ls.write('SETP 1,%.2f' % 273)#turn off the heater
+
+ls.write('RAMP 1,0,%.2f' % parameters[0])#turn off the heater
+change_status(0)
 time.sleep(0.05)
 ls.close()
 srs.close()
-#sr.close()
-##file.close()
