@@ -10,14 +10,14 @@ def get_parameters():
     with open(parameter_path) as f:
         lines = f.readlines()
     del f
-    return [float(lines[0].split()[1]),float(lines[1].split()[1]),int(lines[2].split()[1])]
-    #The format of the output is (RampRate, FinalTemp, Status)
+    return (float(lines[0].split()[1]),float(lines[1].split()[1]),float(lines[2].split()[1]),int(lines[3].split()[1]))
+    #The format of the output is (RampRate, StartTemp, FinalTemp, Status)
 
 def change_status(new_status):
     with open(parameter_path) as f:
         lines = f.readlines()
     del f
-    lines[2] = lines[2][:-1] + str(new_status)
+    lines[3] = lines[3][:-1] + str(new_status)
     file1 = open(parameter_path,"w")#write mode
     file1.writelines(lines)
     file1.close()
@@ -25,18 +25,17 @@ def change_status(new_status):
     #status is an int [0,2]
     # No Ramp = 0
     # StartRamp = 1
-    # Ramp = 2
-    # Stop = 3
+    # Stop = 2
 
-# save_path = ('C:\\Users\\mpms\\Desktop\\Contactless Probe\\RawData')
-# parameter_path = 'C:\\Users\\mpms\\Desktop\\Contactless Probe\\parameters.dat'
+save_path = 'C:\\Users\\mpms\\Desktop\\Contactless Probe\\RawData'
+parameter_path = 'C:\\Users\\mpms\\Desktop\\Contactless Probe\\parameters.txt'
 
-save_path = 'C:/Users/blake/Documents/VSCode/Python/Greven/RawData'
-parameter_path = 'C:/Users/blake/Documents/VSCode/Python/Greven/parameters.txt'
+#save_path = 'C:/Users/blake/Documents/VSCode/Python/Greven/RawData'
+#parameter_path = 'C:/Users/blake/Documents/VSCode/Python/Greven/parameters.txt'
 
 avg_num = 4 #this is the number times the lock in will get each voltage before the average is reported
 
-#Save data file
+#Intitiate save data file
 file_input = input("Please type the file name here: ")
 filename = file_input + ".dat"
 completeName = os.path.join(save_path, filename)
@@ -46,7 +45,7 @@ file.write("Time (sec)" + "\t" + "T (K)" + "\t" + "Vx (V)" + "\t" + "Vy (V)"+"\n
 file = completeName
 
 
-#open instaments
+#open instuments
 rm = pyvisa.ResourceManager()
 ls = rm.open_resource('GPIB0::16::INSTR')#this is the lake shore temp controller
 time.sleep(0.1)
@@ -68,13 +67,13 @@ bx.set_ylabel('Heater Percent (%)')
 cx.set_xlabel('Time (min)')
 cx.set_ylabel('Vx (mV)')
 dx.set_xlabel('Time (min)')
-dx.set_ylabel('Vx (mV)')
+dx.set_ylabel('Vy (mV)')
 
 #set intial lakeshore parameters
 parameters = get_parameters()
 ls.write('RAMP 1,0,%.2f' % parameters[0]) #the ramping is intially off
 time.sleep(0.05)
-# ls.write('SETP 1,%.2f' % parameters[1])
+ls.write('SETP 1,%.2f' % parameters[1])
 time.sleep(0.05)
 
 
@@ -82,7 +81,7 @@ values = {}
 intitial_time = time.perf_counter()#get intitial time
 
 #main loop
-while parameters[2] != 2:
+while parameters[3] < 2:
     #update parameters each interation
     del parameters #all local variables are deleted to prevent data pileup in secondary memory that slow processes down
     parameters = get_parameters()
@@ -98,20 +97,16 @@ while parameters[2] != 2:
     values['heater'] = float(ls.query('HTR? 1'))
     time.sleep(0.05)
 
-    ls.write('RAMP 1,1,%.2f' % parameters[0])
-    time.sleep(0.05)
+    if parameters[3] == 0: #no ramp
+        ls.write('RAMP 1,0,%.2f' % parameters[0])# Turns off ramping
+        time.sleep(0.05)
+        ls.write('SETP 1,%.5f' % parameters[1])# intializes temperature for ramping
 
-    if parameters[2] == 0: #no ramp
-        ls.write('RAMP 1,0,%.2f' % parameters[0])# Turns off the heating
-
-    elif parameters[2] == 1: #begin ramp mode
+    elif parameters[3] == 1: #ramp mode
         ls.write('RAMP 1,1,%.2f' % parameters[0])
         time.sleep(0.05)
-        ls.write('SETP 1,%.2f' % values['Temp'])#this sets the setpoint to the final desired temp
-        change_status(2)
-    
-    elif parameters[2] == 2: #ramp mode
-        ls.write('RAMP 1,1,%.2f' % parameters[0])
+        ls.write('SETP 1,%.5f' % parameters[2])#this sets the setpoint to the final temp
+        time.sleep(0.05)
 
     time.sleep(0.05)
     vx=0
@@ -124,7 +119,7 @@ while parameters[2] != 2:
         del p, p1
         time.sleep(0.1)
 
-    if parameters[1] <= values['Temp'] and parameters[2] != 2:
+    if parameters[2] <= values['Temp'] and parameters[3]<2:
         change_status(0) #stop ramping condition
         del parameters
         parameters = get_parameters()
@@ -134,15 +129,15 @@ while parameters[2] != 2:
     bx.plot(values['time'],values['heater'],'ro--')
     cx.plot(values['time'],1000*values['Vx'],'bo--')
     dx.plot(values['time'],1000*values['Vy'],'bo--')
-    ax.set_title('Setpoint ='+str(ls.query('SETP? 1'))[1:6],fontsize = 12)
-    #ax.text(.1,.1,'Current Temp =' + str(values['Temp']) +'(K)')
+    ax.set_title('CurrTemp ='+str(values['Temp']),fontsize = 12)
+    bx.set_title('Setpoint ='+str(ls.query('SETP? 1'))[1:6],fontsize = 12)
    
     plt.pause(0.1) #this displays the graph
     time.sleep(0.1)
 
     #save data
     file = open(completeName, "a")
-    file.write(str(60*values['time']) + "\t" +  str(values['Temp']) + "\t" + str(values['Vx']) + "\t" + str(values['Vy'])+"\n")
+    file.write(str(60*values['time']) + "\t\t" +  str(values['Temp']) + "\t" + str(values['Vx']) + "\t\t" + str(values['Vy'])+"\n")
     file.flush()
     file.close()
     time.sleep(0.1)
@@ -151,7 +146,9 @@ while parameters[2] != 2:
     del vx, vy#, vr, vt
 
 
-ls.write('RAMP 1,0,%.2f' % parameters[0])#turn off the heater
+ls.write('RAMP 1,0,%.2f' % parameters[0])#turn off ramping
+time.sleep(0.05)
+ls.write('SETP 1,%.5f' % parameters[1]) #set temp back to start
 change_status(0)
 time.sleep(0.05)
 ls.close()

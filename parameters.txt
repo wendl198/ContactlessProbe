@@ -1,3 +1,4 @@
 RampRate(K/min): 1
-FinalTemp(K): 310
-Status: 2
+StartTemp(K): 295
+FinalTemp(K): 300
+Status: 0
