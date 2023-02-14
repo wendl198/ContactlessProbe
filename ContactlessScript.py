@@ -41,7 +41,7 @@ filename = file_input + ".dat"
 completeName = os.path.join(save_path, filename)
 
 file = open(completeName, "a")
-file.write("Time (sec)" + "\t" + "T (K)" + "\t" + "Vx (V)" + "\t" + "Vy (V)"+"\n")
+file.write("Time (min)" + "\t" + "T (K)" + "\t" + "Vx (V)" + "\t" + "Vy (V)"+"\n")
 file = completeName
 
 
@@ -137,7 +137,7 @@ while parameters[3] < 2:
 
     #save data
     file = open(completeName, "a")
-    file.write(str(60*values['time']) + "\t\t" +  str(values['Temp']) + "\t" + str(values['Vx']) + "\t\t" + str(values['Vy'])+"\n")
+    file.write(str(values['time']) + "\t\t" +  str(values['Temp']) + "\t" + str(values['Vx']) + "\t\t" + str(values['Vy'])+"\n")
     file.flush()
     file.close()
     time.sleep(0.1)
