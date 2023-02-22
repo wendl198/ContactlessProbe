@@ -3,19 +3,20 @@ import matplotlib.pyplot as plt
 import pyvisa
 import time
 import os
+import warnings
 
 def get_parameters():
     with open(parameter_path) as f:
         lines = f.readlines()
     del f
     lines[6] = lines[6].split()
-    del lines[6][0] #this removes the word, but still returns a list
+    lines[6].pop(0) #this removes the word, but still returns a list
     return (lines[0].split()[1],#RampRate
             lines[1].split()[1],#StartTemp
             lines[2].split()[1],#FinalTemp
-            lines[3].split()[1],#RampingStatus
+            int(lines[3].split()[1]),#RampingStatus
             [lines[4].split()[1],lines[4].split()[2],lines[4].split()[3]],#PID paratmeters
-            lines[5].split()[1],#Autoscale boolean
+            int(lines[5].split()[1]),#Autoscale boolean
             lines[6]) #time scale
 
 def change_status(new_status):
@@ -33,12 +34,12 @@ def change_status(new_status):
     # Stop = 2
 
 
-# save_path = 'C:\\Users\\mpms\\Desktop\\Contactless Probe\\RawData'
-# parameter_path = 'C:\\Users\\mpms\\Desktop\\Contactless Probe\\parameters.txt'
+save_path = 'C:\\Users\\mpms\\Desktop\\Contactless Probe\\RawData'
+parameter_path = 'C:\\Users\\mpms\\Desktop\\Contactless Probe\\parameters.txt'
 
 
-save_path = 'C:/Users/blake/Documents/VSCode/Python/Greven/RawData'
-parameter_path = 'C:/Users/blake/Documents/VSCode/Python/Greven/parameters.txt'
+#save_path = 'C:/Users/blake/Documents/VSCode/Python/Greven/RawData'
+#parameter_path = 'C:/Users/blake/Documents/VSCode/Python/Greven/parameters.txt'
 
 avg_num = 4 #this is the number times the lock-in will collect a voltage measurement before the average is reported
 
@@ -89,15 +90,24 @@ cx.set_ylabel('Vx (mV)')
 dx.set_xlabel('Time (min)')
 dx.set_ylabel('Vy (mV)')
 
-p1, = ax.plot(0,float(ls.query('KRDG? a')),'bo--')
-p2, = bx.plot(0,float(ls.query('HTR? 1')),'ro--')
+p1, = ax.plot(0,float(ls.query('KRDG? a')),'ko-')
+p2, = bx.plot(0,float(ls.query('HTR? 1')),'ro-')
 vs = srs.query('SNAPD?').split(',')
-p3, = cx.plot(0,1000*float(vs[0]),'bo--') #plot in mV
-p4,= dx.plot(0,1000*float(vs[1]),'bo--')
+p3, = cx.plot(0,1000*float(vs[0]),'bo-') #plot in mV
+p4,= dx.plot(0,1000*float(vs[1]),'go-')
 del vs
 
 values = {}
 intitial_time = time.perf_counter()#get intitial time
+
+Tmin = np.inf
+Tmax = -1
+hmin = np.inf
+hmax = -1
+vxmin = np.inf
+vxmax = -2
+vymin = np.inf
+vymax = -2 
 
 
 #######################
@@ -128,6 +138,30 @@ while parameters[3] < 2:
         vy += float(vs[1])/avg_num
         del vs
         time.sleep(0.1)
+    if Tmin > values['Temp']:
+        del Tmin
+        Tmin = values['Temp']
+    elif Tmax < values['Temp']:
+        del Tmax
+        Tmax = values['Temp']
+    if hmin > values['heater']:
+        del hmin
+        hmin = values['heater']
+    elif hmax < values['heater']:
+        del hmax
+        hmax = values['heater']
+    if vxmin > vx:
+        del vxmin
+        vxmin = vx
+    elif vxmax < vx:
+        del vxmax
+        vxmax = vx
+    if vymin > vy:
+        del vymin
+        vymin = vy
+    elif vymax < vy:
+        del vymax
+        vymax = vy
     values['Vx'] = vx
     values['Vy'] = vy
 
@@ -145,7 +179,7 @@ while parameters[3] < 2:
         time.sleep(0.05)
         ls.write('SETP 1,'+ parameters[1])#this sets the setpoint to the final temp
         time.sleep(0.05)
-        ls.write('PID 1,',+parameters[4][0]+','+parameters[4][1]+','+parameters[4][2])#this sets the setpoint to the final temp
+        ls.write('PID 1,'+ parameters[4][0]+','+ parameters[4][1]+',' + parameters[4][2])#this sets the setpoint to the final temp
     time.sleep(0.05)
     
     #######################
@@ -157,14 +191,14 @@ while parameters[3] < 2:
     # cx.plot(values['time'],1000*values['Vx'],'bo--') #plot in mV
     # dx.plot(values['time'],1000*values['Vy'],'go--')
 
-    p1.set_xdata(np.concatenate((p1.get_xdata(),values['time'])))
-    p1.set_ydata(np.concatenate((p1.get_ydata(),values['Temp'])))
-    p2.set_xdata(np.concatenate((p2.get_xdata(),values['time'])))
-    p2.set_ydata(np.concatenate((p2.get_ydata(),values['heater'])))
-    p3.set_xdata(np.concatenate((p3.get_xdata(),values['time'])))
-    p3.set_ydata(np.concatenate((p3.get_ydata(),1000*values['Vx'])))
-    p4.set_xdata(np.concatenate((p4.get_xdata(),values['time'])))
-    p4.set_ydata(np.concatenate((p4.get_ydata(),1000*values['Vy'])))
+    p1.set_xdata(np.append(p1.get_xdata(),values['time']))
+    p1.set_ydata(np.append(p1.get_ydata(),values['Temp']))
+    p2.set_xdata(np.append(p2.get_xdata(),values['time']))
+    p2.set_ydata(np.append(p2.get_ydata(),values['heater']))
+    p3.set_xdata(np.append(p3.get_xdata(),values['time']))
+    p3.set_ydata(np.append(p3.get_ydata(),1000*values['Vx']))
+    p4.set_xdata(np.append(p4.get_xdata(),values['time']))
+    p4.set_ydata(np.append(p4.get_ydata(),1000*values['Vy']))
 
     if parameters[5]:
         ax.set_xlim(left = 0, right = values['time'])
@@ -173,20 +207,25 @@ while parameters[3] < 2:
         dx.set_xlim(left = 0, right = values['time'])
     else:
         if len(parameters[6]) == 2:
-            ax.set_xlim(left = parameters[6][0],right = parameters[6][1])
-            bx.set_xlim(left = parameters[6][0],right = parameters[6][1])
-            cx.set_xlim(left = parameters[6][0],right = parameters[6][1])
-            dx.set_xlim(left = parameters[6][0],right = parameters[6][1])
+            ax.set_xlim(left = float(parameters[6][0]),right = float(parameters[6][1]))
+            bx.set_xlim(left = float(parameters[6][0]),right = float(parameters[6][1]))
+            cx.set_xlim(left = float(parameters[6][0]),right = float(parameters[6][1]))
+            dx.set_xlim(left = float(parameters[6][0]),right = float(parameters[6][1]))
         elif len(parameters[6]) == 1:
-            ax.set_xlim(left = parameters[6][0],right = values['time'])
-            bx.set_xlim(left = parameters[6][0],right = values['time'])
-            cx.set_xlim(left = parameters[6][0],right = values['time'])
-            dx.set_xlim(left = parameters[6][0],right = values['time'])
+            ax.set_xlim(left = float(parameters[6][0]),right = values['time'])
+            bx.set_xlim(left = float(parameters[6][0]),right = values['time'])
+            cx.set_xlim(left = float(parameters[6][0]),right = values['time'])
+            dx.set_xlim(left = float(parameters[6][0]),right = values['time'])
         else:
             ax.set_xlim(left = 0, right = values['time'])
             bx.set_xlim(left = 0, right = values['time'])
             cx.set_xlim(left = 0, right = values['time'])
             dx.set_xlim(left = 0, right = values['time'])
+    warnings.filterwarnings("ignore")
+    ax.set_ylim(bottom = Tmin, top = Tmax)
+    bx.set_ylim(bottom = hmin, top = hmax)
+    cx.set_ylim(bottom = 1000*vxmin, top = 1000*vxmax)
+    dx.set_ylim(bottom = 1000*vymin, top = 1000*vymax)
 
     ax.set_title('CurrTemp ='+str(values['Temp']),fontsize = 12)
     bx.set_title('Setpoint ='+str(ls.query('SETP? 1'))[1:6],fontsize = 12)
@@ -203,7 +242,7 @@ while parameters[3] < 2:
     file.close()
 
     #check if final temp is reached
-    if parameters[2] <= values['Temp']:
+    if float(parameters[2]) <= values['Temp']:
         change_status(0) #stop ramping, but still collect data
 
     del values['time'],values['Temp'],values['Vx'],values['Vy'],values['heater']#,values['T_sample'],values['R'],values['Th'], values['V_total']
