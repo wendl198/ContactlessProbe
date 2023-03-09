@@ -8,6 +8,7 @@ from scipy.optimize import curve_fit
 
 def get_parameters(f):
     try:
+        f.seek(0) #resets pointer to top of the file
         lines = f.readlines()
         lines[6] = lines[6].split()
         lines[6].pop(0) #this removes the word, but still returns a list
@@ -26,6 +27,7 @@ def get_parameters(f):
     #May be smart to install a better fail safe, but this is probably good enough for most users.
 
 def change_status(new_status,f):
+    f.seek(0)
     lines = f.readlines()
     lines[3] = lines[3][:-2] + str(new_status) +'\n'
     file1 = open(parameter_path,"w")#write mode
@@ -53,7 +55,7 @@ def guess_cool_time(t,T):
     #what to find t_0 in T_final = a * e^(b*t_0) + 77.3
     #t_o=ln[(T_final-77.3)/a]/b
     del bestfit, t, T
-    print(bestpars1)
+    #print(bestpars1)
     return str(np.log((78-77.3)/bestpars1[0])/bestpars1[1])#time til 78K prediction
 
 
@@ -191,7 +193,7 @@ while parameters[3] < 2:
         ls.write('SETP 1,'+ parameters[1])# intializes temperature for ramping
 
         #next part is optional
-        if values['Temp'] > 78:
+        if values['Temp'] > 780:
             t = p1.get_xdata()
             if len(t)>fit_points+1:
                 ax.legend().set_visible(True)
@@ -199,10 +201,10 @@ while parameters[3] < 2:
             del t
 
     elif parameters[3] == 1: #ramp mode
-        ax.legend().set_visible(False)
+        #ax.legend().set_visible(False)
         ls.write('RAMP 1,1,'+ parameters[0])
         time.sleep(0.05)
-        ls.write('SETP 1,'+ parameters[1])#this sets the setpoint to the final temp
+        ls.write('SETP 1,'+ parameters[2])#this sets the setpoint to the final temp
         time.sleep(0.05)
         ls.write('PID 1,'+ parameters[4][0]+','+ parameters[4][1]+',' + parameters[4][2])#this sets the setpoint to the final temp
     
@@ -268,7 +270,6 @@ while parameters[3] < 2:
         change_status(0,parameter_file) #stop ramping, but still collect data
 
     del values['time'],values['Temp'],values['Vx'],values['Vy'],values['heater']#,values['T_sample'],values['R'],values['Th'], values['V_total']
-    del values['Vx'], values['Vy']#, vr, vt
 
 
 #######################
