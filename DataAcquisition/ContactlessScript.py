@@ -188,6 +188,8 @@ while parameters[3] < 2:
             t = p1.get_xdata()
             if len(t)>fit_points+1:
                 ax.set_title('CurrTemp ='+str(values['Temp']) +'\n'+ '78k in ' + str(round(guess_cool_time(t[-fit_points:],p1.get_ydata()[-fit_points:]),1)) + ' mins', fontsize = 12)
+            else:
+                ax.set_title('CurrTemp ='+str(values['Temp']),fontsize = 12)
         else:
             ax.set_title('CurrTemp ='+str(values['Temp']),fontsize = 12)
     elif parameters[3] == 1: #ramp mode
