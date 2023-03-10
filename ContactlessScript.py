@@ -68,16 +68,26 @@ def find_nearest_ind(bounds,times):
     for t in bounds:
         i = l//2
         divisor = 4
-        while times[i] > t or times[i+1] < t: #stops when t is between times[i] and times[i+1]
-            if times[i] > t:
-                i -= l//divisor+1 #this is simply the ceiling operation
+        try:
+            while times[i] > t or times[i+1] < t: #stops when t is between times[i] and times[i+1]
+                input(i)
+                if times[i] > t:
+                    i -= l//divisor+1 #this is simply the ceiling operation (close enough)
+                else:
+                    i += l//divisor+1
+                divisor*=2
+            if t-times[i] >= .5:
+                output.append(i+1)
             else:
-                i += l//divisor+1
-            divisor*=2
-        if t-times[i] >= .5:
-            output.append(i+1)
-        else:
-            output.append(i)
+                output.append(i)
+        except:# this is meant to be boundary condiitons: if the t is not in the list, the lowest or highest index will be returned 
+            if i < 0:
+                output.append(0)
+            elif i >= l:
+                output.append(l-1)
+            else:
+                print('Error in time scaling.\nUnsure why i = ',i)
+                output.append(0) 
     return output
 
 #paths
