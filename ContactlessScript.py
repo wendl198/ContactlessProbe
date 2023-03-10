@@ -70,7 +70,6 @@ def find_nearest_ind(bounds,times):
         divisor = 4
         try:
             while times[i] > t or times[i+1] < t: #stops when t is between times[i] and times[i+1]
-                input(i)
                 if times[i] > t:
                     i -= l//divisor+1 #this is simply the ceiling operation (close enough)
                 else:
@@ -238,6 +237,11 @@ while parameters[3] < 2:
             inds = find_nearest_ind([t0,t1],times)
             ind0 = inds[0]
             ind1 = inds[1]
+            if ind0 == ind1:
+                if ind0 == 0:
+                    ind1 = 1
+                else:
+                    ind0 -= 1
             ax.set_xlim(left = t0,right = t1)
             bx.set_xlim(left = t0,right = t1)
             cx.set_xlim(left = t0,right = t1)
