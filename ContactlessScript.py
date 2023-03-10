@@ -69,7 +69,6 @@ def find_nearest_ind(bounds,times):
         i = l//2
         divisor = 4
         while times[i] > t or times[i+1] < t: #stops when t is between times[i] and times[i+1]
-            input(i)
             if times[i] > t:
                 i -= l//divisor+1 #this is simply the ceiling operation
             else:
