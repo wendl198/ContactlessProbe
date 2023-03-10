@@ -82,7 +82,7 @@ def find_nearest_ind(bounds,times):
         except:# this is meant to be boundary condiitons: if the t is not in the list, the lowest or highest index will be returned 
             if i < 0:
                 output.append(0)
-            elif i >= l:
+            elif i + 1 >= l:
                 output.append(l-1)
             else:
                 print('Error in time scaling.\nUnsure why i = ',i)
@@ -246,10 +246,10 @@ while parameters[3] < 2:
             bx.set_xlim(left = t0,right = t1)
             cx.set_xlim(left = t0,right = t1)
             dx.set_xlim(left = t0,right = t1)
-            ax.set_ylim(bottom = y1[ind0:ind1].min(), top = y1[ind0:ind1].max())
-            bx.set_ylim(bottom = y2[ind0:ind1].min(), top = y2[ind0:ind1].max())
-            cx.set_ylim(bottom = y3[ind0:ind1].min(), top = y3[ind0:ind1].max())
-            dx.set_ylim(bottom = y4[ind0:ind1].min(), top = y4[ind0:ind1].max())
+            ax.set_ylim(bottom = y1[ind0:ind1 + 1].min(), top = y1[ind0:ind1 + 1].max())
+            bx.set_ylim(bottom = y2[ind0:ind1 + 1].min(), top = y2[ind0:ind1 + 1].max())
+            cx.set_ylim(bottom = y3[ind0:ind1 + 1].min(), top = y3[ind0:ind1 + 1].max())
+            dx.set_ylim(bottom = y4[ind0:ind1 + 1].min(), top = y4[ind0:ind1 + 1].max())
         elif len(parameters[6]) == 1:
             t0 = float(parameters[6][0])
             ind0 = find_nearest_ind([t0],times)[0]
