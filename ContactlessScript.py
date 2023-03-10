@@ -174,6 +174,8 @@ while parameters[3] < 2:
     # Update Ramping Status
     ########################
 
+    bx.set_title('Setpoint ='+str(ls.query('SETP? 1'))[1:6],fontsize = 12)
+
     if parameters[3] == 0: #no ramp
         ls.write('RAMP 1,0,'+ parameters[0])# Turns off ramping
         time.sleep(0.05)
@@ -185,8 +187,9 @@ while parameters[3] < 2:
         if values['Temp'] > 78:
             t = p1.get_xdata()
             if len(t)>fit_points+1:
-                ax.text(0.05, 0.95, '78k in ' + str(round(guess_cool_time(t[-fit_points:],p1.get_ydata()[-fit_points:]),1)) + ' mins', transform=ax.transAxes,fontsize=8)
-
+                ax.set_title('CurrTemp ='+str(values['Temp']) +'\n'+ '78k in ' + str(round(guess_cool_time(t[-fit_points:],p1.get_ydata()[-fit_points:]),1)) + ' mins', fontsize = 12)
+        else:
+            ax.set_title('CurrTemp ='+str(values['Temp']),fontsize = 12)
     elif parameters[3] == 1: #ramp mode
         #ax.legend().set_visible(False)
         ls.write('RAMP 1,1,'+ parameters[0])
@@ -196,8 +199,7 @@ while parameters[3] < 2:
         ls.write('PID 1,'+ parameters[4][0]+','+ parameters[4][1]+',' + parameters[4][2])#this sets the setpoint to the final temp
         time.sleep(0.05)
         ls.write('Range 1,1') #this turns the heater to low
-        for txt in fig.texts:
-            txt.set_visible(False) #clears textbox with cooltime prediction
+        ax.set_title('CurrTemp ='+str(values['Temp']),fontsize = 12)
     
     #######################
     # Plotting
@@ -271,8 +273,7 @@ while parameters[3] < 2:
             cx.set_ylim(bottom = y3.min(), top = y3.max())
             dx.set_ylim(bottom = y4.min(), top = y4.max())
 
-    ax.set_title('CurrTemp ='+str(values['Temp']),fontsize = 12)
-    bx.set_title('Setpoint ='+str(ls.query('SETP? 1'))[1:6],fontsize = 12)
+    
 
     #######################
     # Save Data
