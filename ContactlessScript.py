@@ -2,8 +2,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pyvisa
 import time
+import warnings
 import os
 from scipy.optimize import curve_fit
+
+warnings.filterwarnings("ignore")
+
+#############################
+# Initialize Functions
+#############################
 
 def get_parameters(f):
     try:
@@ -54,17 +61,32 @@ def guess_cool_time(t,T):
     return np.log((78-bestpars1[2])/bestpars1[0])/bestpars1[1]#time til 78K prediction
 
 
+def find_nearest_ind(bounds,times):
+    output = []
+    l = len(times)
+    # t is an ordered list, so we can do a binary search to find the nearest ind in O(log(l)) time
+    for t in bounds:
+        i = l//2
+        divisor = 4
+        while times[i] > t or times[i+1] < t: #stops when t is between times[i] and times[i+1]
+            input(i)
+            if times[i] > t:
+                i -= l//divisor+1 #this is simply the ceiling operation
+            else:
+                i += l//divisor+1
+            divisor*=2
+        if t-times[i] >= .5:
+            output.append(i+1)
+        else:
+            output.append(i)
+    return output
+
+#paths
 save_path = 'C:\\Users\\mpms\\Desktop\\Contactless Probe\\RawData'
 parameter_path = 'C:\\Users\\mpms\\Desktop\\Contactless Probe\\parameters.txt'
 default_path = 'C:\\Users\\mpms\\Desktop\\Contactless Probe\\default_parameters.txt'
 
-
-# save_path = 'C:/Users/blake/Documents/VSCode/Python/Greven/RawData'
-# parameter_path = 'C:/Users/blake/Documents/VSCode/Python/Greven/parameters.txt'
-# default_path = 'C:/Users/blake/Documents/VSCode/Python/Greven/default_parameters.txt'
-
 # adjustable parameters
-
 fit_points = 15 # number of data points that are fitted while cooling
 pause_time = .7 #time in sec
 
@@ -204,8 +226,9 @@ while parameters[3] < 2:
         if len(parameters[6]) == 2:
             t0 = float(parameters[6][0])
             t1 = float(parameters[6][1])
-            ind0 = np.argsort(t0)
-            ind1 = np.argsort(t1)
+            inds = find_nearest_ind([t0,t1],times)
+            ind0 = inds[0]
+            ind1 = inds[1]
             ax.set_xlim(left = t0,right = t1)
             bx.set_xlim(left = t0,right = t1)
             cx.set_xlim(left = t0,right = t1)
@@ -216,7 +239,7 @@ while parameters[3] < 2:
             dx.set_ylim(bottom = y4[ind0:ind1].min(), top = y4[ind0:ind1].max())
         elif len(parameters[6]) == 1:
             t0 = float(parameters[6][0])
-            ind0 = np.argsort(t0)
+            ind0 = find_nearest_ind([t0],times)[0]
             ax.set_xlim(left = t0,right = values['time'])
             bx.set_xlim(left = t0,right = values['time'])
             cx.set_xlim(left = t0,right = values['time'])
