@@ -44,23 +44,6 @@ def change_status(new_status,f):
     # StartRamp = 1
     # Stop = 2
 
-#######################
-# Cooling Time Prediction
-#######################
-
-def model(x,a,b,c):
-    return a*np.exp(x*b)+c # a>0, and b<0 when cooling
-parameterlowerbounds1 = np.array([0,-1e1,77]) # a is the intial temp value - 78 when t=0
-parameterupperbounds1 = np.array([3e2,0,100])
-pbounds1 = np.array([parameterlowerbounds1,parameterupperbounds1])
-def guess_cool_time(t,T):
-    bestfit = curve_fit(model,t-t[0],T,[T[0]-78,-1e-1,78],bounds=pbounds1) #t must be numpy array
-    bestpars1 = bestfit[0]
-    #want to find t_0 in T_final = a * e^(b*t_0) + 77.3
-    #t_o=ln[(T_final-77.3)/a]/b
-    return np.log((78-bestpars1[2])/bestpars1[0])/bestpars1[1]#time til 78K prediction
-
-
 def find_nearest_ind(bounds,times):
     output = []
     l = len(times)
@@ -95,8 +78,7 @@ parameter_path = 'C:\\Users\\mpms\\Desktop\\Contactless Probe\\parameters.txt'
 default_path = 'C:\\Users\\mpms\\Desktop\\Contactless Probe\\default_parameters.txt'
 
 # adjustable parameters
-fit_points = 15 # number of data points that are fitted while cooling
-pause_time = .7 #time in sec
+pause_time = .85 #time in sec
 
 #######################
 # Open Files
@@ -174,24 +156,15 @@ while parameters[3] < 2:
     # Update Ramping Status
     ########################
 
+    ax.set_title('CurrTemp ='+str(values['Temp']),fontsize = 12)
     bx.set_title('Setpoint ='+str(ls.query('SETP? 1'))[1:6],fontsize = 12)
 
     if parameters[3] == 0: #no ramp
         ls.write('RAMP 1,0,'+ parameters[0])# Turns off ramping
         time.sleep(0.05)
         ls.write('SETP 1,'+ parameters[1])# intializes temperature for ramping
-        time.sleep(0.05)
+        time.sleep(0.1)
         ls.write('Range 1,0') #this turns the heater off
-
-        #next part is optional
-        if values['Temp'] > 78:
-            t = p1.get_xdata()
-            if len(t)>fit_points+1:
-                ax.set_title('CurrTemp ='+str(values['Temp']) +'\n'+ '78k in ' + str(round(guess_cool_time(t[-fit_points:],p1.get_ydata()[-fit_points:]),1)) + ' mins', fontsize = 12)
-            else:
-                ax.set_title('CurrTemp ='+str(values['Temp']),fontsize = 12)
-        else:
-            ax.set_title('CurrTemp ='+str(values['Temp']),fontsize = 12)
     elif parameters[3] == 1: #ramp mode
         #ax.legend().set_visible(False)
         ls.write('RAMP 1,1,'+ parameters[0])
@@ -201,7 +174,7 @@ while parameters[3] < 2:
         ls.write('PID 1,'+ parameters[4][0]+','+ parameters[4][1]+',' + parameters[4][2])#this sets the setpoint to the final temp
         time.sleep(0.05)
         ls.write('Range 1,1') #this turns the heater to low
-        ax.set_title('CurrTemp ='+str(values['Temp']),fontsize = 12)
+        
     
     #######################
     # Plotting
