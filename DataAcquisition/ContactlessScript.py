@@ -25,7 +25,7 @@ def get_parameters(f):
                 [lines[4].split()[1],lines[4].split()[2],lines[4].split()[3]],#PID paratmeters
                 int(lines[5].split()[1]),#Autoscale boolean
                 lines[6],#time scale
-                lines[7].split()[1:2])# voltage offset values [Vx,Vy] in mV
+                lines[7].split()[1:3])# voltage offset values [Vx,Vy] in mV
     except:
         print('Error Reading Parameters: Edit parameters.txt or redownload it from https://github.com/wendl198/ContactlessProbe.')
         print('Warning: Data is not currently being recorded.')
@@ -102,7 +102,6 @@ dx.set_ylabel('Vy (mV)')
 T0 = float(ls.query('KRDG? a'))
 p1, = ax.plot(0,T0,'ko-')
 vs = srs.query('SNAPD?').split(',')
-# p2, = bx.plot(0,float(ls.query('HTR? 1')),'ro-')
 p2, = bx.plot(T0,np.angle(float(vs[0])-float(parameters[7][0])+(float(vs[1])-float(parameters[7][1]))*1j),'ro-')
 p3, = cx.plot(0,1000*float(vs[0]),'bo-') #plot in mV
 p4,= dx.plot(0,1000*float(vs[1]),'go-')
