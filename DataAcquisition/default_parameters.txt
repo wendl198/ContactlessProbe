@@ -4,4 +4,5 @@ FinalTemp(K): 300
 Status: 0
 PID: 300 20 0
 AutoScale?: 1
-TimeScale: 0,1
+TimeScale: 0 0
+VOffset: 0 0
