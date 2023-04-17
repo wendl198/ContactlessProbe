@@ -103,7 +103,7 @@ T0 = float(ls.query('KRDG? a'))
 p1, = ax.plot(0,T0,'ko-')
 vs = srs.query('SNAPD?').split(',')
 # p2, = bx.plot(0,float(ls.query('HTR? 1')),'ro-')
-p2, = bx.plot(T0,np.angle(float(vs[0])-parameters[7][0]+(float(vs[1])-parameters[7][1])*1j),'ro-')
+p2, = bx.plot(T0,np.angle(float(vs[0])-float(parameters[7][0])+(float(vs[1])-float(parameters[7][1]))*1j),'ro-')
 p3, = cx.plot(0,1000*float(vs[0]),'bo-') #plot in mV
 p4,= dx.plot(0,1000*float(vs[1]),'go-')
 
@@ -159,7 +159,7 @@ while parameters[3] < 2:
     y1 = np.append(p1.get_ydata(),values['Temp'])
     y3 = np.append(p3.get_ydata(),1000*values['Vx']) # plot the voltages in mV
     y4 = np.append(p4.get_ydata(),1000*values['Vy'])
-    y2 = np.angle(y3-parameters[7][0]+(y4-parameters[7][1])*1j)
+    y2 = np.angle(y3-float(parameters[7][0])+(y4-float(parameters[7][1]))*1j)
 
     p1.set_xdata(times)
     p3.set_xdata(times)
