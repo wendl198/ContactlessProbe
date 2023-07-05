@@ -92,7 +92,7 @@ dx = fig.add_subplot(2, 2, 4)
 #fig.suptitle('Resistivity measurement', fontname = "Times New Roman", fontweight = 'bold', fontsize = 20)
 ax.set_xlabel('Time (min)')
 ax.set_ylabel('Temperature (K)')
-bx.set_xlabel('Time (min)')
+bx.set_xlabel('Temperature (K)')
 bx.set_ylabel('Phase of Voltage (rad)')
 cx.set_xlabel('Time (min)')
 cx.set_ylabel('Vx (mV)')
@@ -184,6 +184,8 @@ while parameters[3] < 2:
     else:
         if len(parameters[6]) == 2:
             t0 = float(parameters[6][0])
+            if t0> times[-1]:
+                t0 = times[-1]-.1
             t1 = float(parameters[6][1])
             inds = np.logical_and(times >= t0, times <= t1)
             p2.set_xdata(y1[inds])
@@ -194,6 +196,8 @@ while parameters[3] < 2:
             dx.set_xlim(left = t0,right = t1)
         elif len(parameters[6]) == 1:
             t0 = float(parameters[6][0])
+            if t0> times[-1]:
+                t0 = times[-1]-.1
             inds = np.logical_not(times<t0)
             p2.set_xdata(y1[inds])
             p2.set_ydata(y2[inds])
