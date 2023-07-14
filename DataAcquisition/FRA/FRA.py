@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pyvisa
 import time
-import warnings
+# import warnings
 import os
 
 save_path = 'C:\\Users\\mpms\\Desktop\\Contactless Probe\\RawData'
@@ -25,11 +25,16 @@ sens_dict = {1000:0,
             1:9,
             .5:10,
             .2:11}
+sens_keys = np.array(list(sens_dict.keys()))
+sens_keys.sort()
 input_range_dict = {1000:0,
                     300:1,
                     100:2,
                     30:3,
                     10:4}
+input_range_keys = np.array(list(input_range_dict.keys()))
+input_range_keys.sort()
+
 rm = pyvisa.ResourceManager()
 ls = rm.open_resource('GPIB0::16::INSTR')#this is the lake shore temp controller
 time.sleep(0.1)
@@ -49,9 +54,9 @@ for i in range(trials):
             srs.query('FREQ '+ str(freq) + ' KHZ')
         except:
             pass
-        vs = srs.query('SNAPD?').split(',') #this is [Vx, Vy, Voltage Magnitude, Theta]
-        j = sens_dict[sens_dict.keys()[np.logical_not(sens_dict.keys()<vs[2])][0]]
-        k = sens_dict[sens_dict.keys()[np.logical_not(input_range_dict.keys()<vs[2])][0]]
+        R = float(srs.query('SNAPD?').split(',')[2])*1000 #this is the Voltage Magnitude in mV
+        j = sens_dict[sens_keys[np.logical_not(sens_keys<R)][0]]
+        k = input_range_dict[input_range_keys[np.logical_not(input_range_keys<R)][0]]
         vs = srs.query('IRNG '+str(k))
         vs = srs.query('SCAL '+str(j))
         time.sleep(3)
