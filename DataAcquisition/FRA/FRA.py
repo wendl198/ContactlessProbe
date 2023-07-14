@@ -11,10 +11,8 @@ save_file = open(os.path.join(save_path, input("Please type the file name here: 
 save_file.write("Time (min)" + "\t" + "T (K)" + "\t" + 'Freq (kHz)' + "\t"+ "Vx (V)" + "\t" + "Vy (V)"+"\n")
 
 set_temp = 92
-freqs = np.array([100.003,250.003,400.003,671.111,800.003,1000.03,1200.03,1500.03,1800.03,2000.03,2500.03,3000.03,4000.03])
+freqs = np.array([100.003,250.003,400.003,671.111,800.003,1000.03,1200.03,1500.03,1800.03,2000.03,2500.03,3000.03,4000])
 trials = 3
-vx = []
-vy = []
 
 rm = pyvisa.ResourceManager()
 ls = rm.open_resource('GPIB0::16::INSTR')#this is the lake shore temp controller
@@ -28,13 +26,14 @@ ls.write('SETP 1,'+ str(set_temp))
 values = {}
 intitial_time = time.perf_counter()#get intitial time
 
-for i in range(len(trials)):
-    print('Begin Trial 1')
-    vx.append([])
-    vy.append([])
+for i in range(trials):
+    print('Begin Trial ' + str(i+1))
     for freq in freqs:
-        ls.write('FREQ '+ freq + ' KHZ')
-        time.sleep(5)
+        try:
+            srs.query('FREQ '+ str(freq) + ' KHZ')
+        except:
+            pass
+        time.sleep(3)
         values['time'] = (time.perf_counter()-intitial_time)/60 #The time is now in minutes
         values['Temp'] = float(ls.query('KRDG? a')) #temp in K
         vs = srs.query('SNAPD?').split(',') #this is [Vx, Vy, Voltage Magnitude, Theta]
