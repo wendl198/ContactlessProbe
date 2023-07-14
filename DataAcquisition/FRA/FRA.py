@@ -10,6 +10,7 @@ save_path = 'C:\\Users\\mpms\\Desktop\\Contactless Probe\\RawData'
 save_file = open(os.path.join(save_path, input("Please type the file name here: ") + ".dat"), "a")
 save_file.write("Time (min)" + "\t" + "T (K)" + "\t" + 'Freq (kHz)' + "\t"+ "Vx (V)" + "\t" + "Vy (V)"+"\n")
 
+set_temp = 92
 freqs = np.array([100.003,250.003,400.003,671.111,800.003,1000.03,1200.03,1500.03,1800.03,2000.03,2500.03,3000.03,4000.03])
 trials = 3
 vx = []
@@ -20,6 +21,9 @@ ls = rm.open_resource('GPIB0::16::INSTR')#this is the lake shore temp controller
 time.sleep(0.1)
 srs = rm.open_resource('GPIB0::13::INSTR')#this is the lock-in
 time.sleep(0.1)
+ls.write('RAMP 1,1,'+ str(set_temp))
+time.sleep(0.1)
+ls.write('SETP 1,'+ str(set_temp))
 
 values = {}
 intitial_time = time.perf_counter()#get intitial time
