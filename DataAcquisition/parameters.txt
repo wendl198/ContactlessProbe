@@ -1,8 +1,8 @@
 RampRate(K/min): 1
-StartTemp(K): 295
+StartTemp(K): 77.3
 FinalTemp(K): 300
 Status: 0
 PID: 23 100 150
-AutoScale?: 1
-TimeScale: 0 1
+AutoScale?: 0
+TimeScale: 1
 VOffset: 0 0

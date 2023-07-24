@@ -132,7 +132,7 @@ while parameters[3] < 2:
     ax.set_title('CurrTemp ='+str(values['Temp']),fontsize = 12)
     bx.set_title('Setpoint ='+str(ls.query('SETP? 1'))[1:6],fontsize = 12)
 
-    if parameters[3] == 0: #no ramp
+    if parameters[3] == 0 or values['Temp'] == 0: #no ramp
         ls.write('RAMP 1,0,'+ parameters[0])# Turns off ramping
         time.sleep(0.05)
         ls.write('SETP 1,'+ parameters[1])# intializes temperature for ramping
