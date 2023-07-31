@@ -57,7 +57,6 @@ pause_time = .85 #time in sec
 # Open Files
 #######################
 save_file = open(os.path.join(save_path, input("Please type the file name here: ") + ".dat"), "a")
-save_file.write("Time (min)" + "\t" + "T (K)" + "\t" + "Vx (V)" + "\t" + "Vy (V)"+"\n")
 parameter_file = open(parameter_path, 'r')
 #the idea is to keep the files open and avoid constant opening and closing. Use file.flush() to save data
 
@@ -108,6 +107,8 @@ p4,= dx.plot(0,1000*float(vs[1]),'go-')
 
 values = {}
 intitial_time = time.perf_counter()#get intitial time
+
+save_file.write("Time (min)" + "\t" + "T (K)" + "\t" + "Vx (V)" + "\t" + "Vy (V)"+'\t'+'Initial Time'+'\t'+str(intitial_time)+"\n")
 
 #######################
 # Main Loop
