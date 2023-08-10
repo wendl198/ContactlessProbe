@@ -56,18 +56,22 @@ def main():
     digitalInput3.openWaitForAttachment(5000)
 
     #Do stuff with your Phidgets here or in your event handlers.
-    stepper0.setTargetPosition(int(StepsPerRev))
+    # stepper0.setTargetPosition(int(StepsPerRev))
+    # stepper0.setEngaged(True)
+    # while stepper0.getTargetPosition() != stepper0.getPosition():
+    #     speed,_ = get_parameters(parameter_file)
+    #     stepper0.setVelocityLimit(int(speed))
+    #     #get_parameters
+    # time.sleep(3)
+    # stepper0.addPositionOffset(0)
+    # stepper0.setTargetPosition(0) #this zeros the position
+    # while stepper0.getTargetPosition() != stepper0.getPosition():
+    #     speed,_ = get_parameters(parameter_file)
+    #     stepper0.setVelocityLimit(int(speed))
+
     stepper0.setEngaged(True)
-    while stepper0.getTargetPosition() != stepper0.getPosition():
-        speed,_ = get_parameters(parameter_file)
-        stepper0.setVelocityLimit(int(speed))
-        #get_parameters
-    time.sleep(3)
-    stepper0.addPositionOffset(0)
-    stepper0.setTargetPosition(0) #this zeros the position
-    while stepper0.getTargetPosition() != stepper0.getPosition():
-        speed,_ = get_parameters(parameter_file)
-        stepper0.setVelocityLimit(int(speed))
+    while not(digitalInput2.getInputMode() and digitalInput3.getInputMode()):
+        pass
     #Close your Phidgets once the program is done.
     stepper0.close()
     digitalInput1.close()
