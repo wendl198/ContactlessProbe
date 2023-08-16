@@ -2,6 +2,7 @@ from Phidget22.Phidget import *
 from Phidget22.Devices.Stepper import *
 from Phidget22.Devices.DigitalInput import *
 import time
+from datetime import datetime
 
 def get_parameters(f):
     try:
@@ -31,22 +32,18 @@ def onDigitalInput1_StateChange(self, state):
 def onDigitalInput2_StateChange(self, state):
     #print("State [2]: " + str(state))
     if not(state):
-        stepper0.setEngaged(False)
-        stepper0.addPositionOffset(-stepper0.getPosition())
+        stepper0.setVelocityLimit(0)
     elif not(digitalInput3.getState()):
-        stepper0.setTargetPosition(3000000)
-        stepper0.setEngaged(True)
-            
-        
+        speed,_ = get_parameters(parameter_file)
+        stepper0.setVelocityLimit(speed)   
 
 def onDigitalInput3_StateChange(self, state):
     #print("State [3]: " + str(state))
     if not(state):
-        stepper0.setEngaged(False)
-        stepper0.addPositionOffset(-stepper0.getPosition())
+        stepper0.setVelocityLimit(0)
     elif not(digitalInput2.getState()):
-        stepper0.setTargetPosition(-3000000)
-        stepper0.setEngaged(True)
+        speed,_ = get_parameters(parameter_file)
+        stepper0.setVelocityLimit(-speed)
 
 
     #Create your Phidget channels
@@ -65,10 +62,10 @@ digitalInput2.setOnStateChangeHandler(onDigitalInput2_StateChange)
 digitalInput3.setOnStateChangeHandler(onDigitalInput3_StateChange)
 
     #Open your Phidgets and wait for attachment
-stepper0.openWaitForAttachment(5000)
-digitalInput1.openWaitForAttachment(5000)
-digitalInput2.openWaitForAttachment(5000)
-digitalInput3.openWaitForAttachment(5000)
+stepper0.openWaitForAttachment(timeout)
+digitalInput1.openWaitForAttachment(timeout)
+digitalInput2.openWaitForAttachment(timeout)
+digitalInput3.openWaitForAttachment(timeout)
 
     #Do stuff with your Phidgets here or in your event handlers.
     # stepper0.setTargetPosition(int(StepsPerRev))
@@ -83,46 +80,30 @@ digitalInput3.openWaitForAttachment(5000)
     # while stepper0.getTargetPosition() != stepper0.getPosition():
     #     speed,_ = get_parameters(parameter_file)
     #     stepper0.setVelocityLimit(int(speed))
-    
-#set up
 onecm = StepsPerRev/5.65
-stepper0.setEngaged(True)
-stepper0.setControlMode(StepperControlMode.CONTROL_MODE_STEP)
-stepper0.setDataRate(100)#Hz
+# datetime object containing current date and time
+now = datetime.now()
+# dd/mm/YYH:M:S
+dt_string = now.strftime("%d_%m_%Y_%H_%M_%S")
+
+save_path = 'C:\\Users\\Contactless\\Desktop\\Stepper\\RawData'
+save_file = open(save_path +'\\Stepper'+dt_string+'.dat', "a")
+save_file.write("Time (min)" + "\t" + 'Position(1/16 steps)'+"\n")
+
 stepper0.addPositionOffset(-stepper0.getPosition())
-#for n in range(30):
-#    print('Step',n)
-#    stepper0.addPositionOffset(-stepper0.getPosition())
-#    stepper0.setTargetPosition(onecm)
-    #print(stepper0.getTargetPosition(), stepper0.getPosition())
-#    while stepper0.getTargetPosition() != stepper0.getPosition():
-#        if digitalInput2.getState() and digitalInput3.getState():
-#            break
-#        speed,_ = get_parameters(parameter_file)
-#        print(stepper0.getTargetPosition(), stepper0.getPosition(),stepper0.getRescaleFactor())
-#        stepper0.setVelocityLimit(int(speed))
-#        time.sleep(.1)
-#    if digitalInput2.getState() and digitalInput3.getState():
-#        break
-#    time.sleep(1)
+stepper0.setControlMode(StepperControlMode.CONTROL_MODE_RUN)
+stepper0.setEngaged(True)
+stepper0.setCurrentLimit(1)
+initial_time = time.perf_counter()
+stepper0.setVelocityLimit(234.8)
+while stepper0.getPosition()/StepsPerRev*5.65<2 and not(digitalInput2.getState() and digitalInput3.getState()):
+    save_file.write(str((time.perf_counter()-initial_time)/60) + "\t" +  str(stepper0.getPosition())+"\n")
+    save_file.flush()#this will save the data without closing the file
+    time.sleep(.1)
 
-stepper0.setTargetPosition(6*onecm)
-
-v = onecm*30/(3600*2)
-print(v)
-stepper0.setVelocityLimit(5000)
-while stepper0.getTargetPosition() != stepper0.getPosition():
-    if digitalInput2.getState() and digitalInput3.getState():
-        break
-    print(stepper0.getPosition()/(6*onecm))
-    time.sleep(1)
-
-
-#end condition
-while not(digitalInput2.getState() and digitalInput3.getState()):
-    speed,_ = get_parameters(parameter_file)
-    stepper0.setVelocityLimit(int(speed))
+    
 #Close your Phidgets once the program is done.
+save_file.close()
 stepper0.close()
 digitalInput1.close()
 digitalInput2.close()
