@@ -16,8 +16,6 @@ time_cons = [100] #ms
 freq_range = [100,2000] #in kHz
 scan_time = 10*60 #in seconds
 
-
-freqs = np.array([100.003,250.003,400.003,500.003,600.003,671.111,800.003,900.003,1000.03,1250.03,1500.03,1800.03,2000.03,2250.03,2500.03,2750.03,3000.03,3500.03,4000])
 sens_dict = {1000:0,
             500:1,
             200:2,
@@ -52,7 +50,7 @@ time.sleep(0.1)
 
 #set scan parameters
 command_list = [
-    'SLVL ',+str(signal_amp)+' MV',
+    'SLVL '+str(signal_amp)+' MV',
     'SCNPAR F',
     'SCNFREQ 0, '+str(freq_range[0])+' KHZ',
     'SCNFREQ 1, '+str(freq_range[1])+' KHZ',
