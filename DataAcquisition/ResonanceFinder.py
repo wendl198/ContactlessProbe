@@ -13,7 +13,7 @@ save_file.write("Time (min)"   + "\t"+ "Vx (V)" + "\t" + "Vy (V)"+ "\t" + "R (V)
 
 signal_amp = 100 #in mV
 time_cons = [100] #ms
-freq_range = [100,2000] #in kHz
+freq_range = [5,4000] #in kHz
 scan_time = 60*60 #in seconds
 
 sens_dict = {1000:0,
@@ -77,7 +77,7 @@ values = {}
 intitial_time = time.perf_counter()#get intitial time
 
 srs.write('SCNRUN')
-print('Beginning')
+print('Sweeping at ' + str((freq_range[1]-freq_range[0])/scan_time*60) +' kHz/min')
 for time_con in time_cons:
     srs.write('OFLT 10') #100ms time cosntant
     while srs.query('SCNSTATE?').strip()=='2':#scan is running
