@@ -51,12 +51,13 @@ time.sleep(0.1)
 #set scan parameters
 command_list = [
     'SCNRST', #reset scan
-    'SLVL '+str(signal_amp)+' MV',
-    'SCNPAR F',
-    'SCNFREQ 0, '+str(freq_range[0])+' KHZ',
+    'SLVL '+str(signal_amp)+' MV', #intialize voltage
+    'FREQ '+ str(freq_range[0]) + ' KHZ' #intialize frequency
+    'SCNPAR F', #set freq scan
+    'SCNFREQ 0, '+str(freq_range[0])+' KHZ', #scan freq range
     'SCNFREQ 1, '+str(freq_range[1])+' KHZ',
-    'SCNSEC ' +str(scan_time),
-    'SCNLOG 0',
+    'SCNSEC ' +str(scan_time), #total scan time in seconds
+    'SCNLOG 0',#set linear scan with 0 log scan with 1
     'SCNEND 0',
     'SCNINRVL 0',
     'ISRC 0',
@@ -64,7 +65,7 @@ command_list = [
     'CDSP 1, 1', #second is vy
     'CDSP 2, 2', #third is R
     'CDSP 3, 15', #fourth is freq
-    'SCNENBL ON'
+    'SCNENBL ON' #ready scan
 ]
 
 for com in command_list:
@@ -72,12 +73,28 @@ for com in command_list:
     srs.write(com) #execute command
     time.sleep(0.01)#wait 10ms
 
+fig = plt.figure(constrained_layout = True)
+ax = fig.add_subplot(3, 1, 1)
+bx = fig.add_subplot(3, 1, 2)
+cx = fig.add_subplot(3, 1, 3)
+ax.set_xlabel('Frequency (kHz)')
+bx.set_xlabel('Frequency (kHz)')
+cx.set_xlabel('Frequency (kHz)')
+ax.set_ylabel('Vx (mV)')
+bx.set_ylabel('Vx (mV)')
+cx.set_ylabel('Voltage Magnitude (mV)')
+
+vx0,vy0,R0,f0 = srs.query('SNAPD?').split(',')
+p1, = ax.plot(float(f0),float(vx0),'ko-')
+p2, = bx.plot(float(f0),float(vy0),'ro-')
+p3, = cx.plot(float(f0),float(R0),'bo-') #plot in mV
 
 values = {}
 intitial_time = time.perf_counter()#get intitial time
 
-srs.write('SCNRUN')
+srs.write('SCNRUN') #start scan
 print('Sweeping at ' + str((freq_range[1]-freq_range[0])/scan_time*60) +' kHz/min')
+time.sleep(.05)
 for time_con in time_cons:
     srs.write('OFLT 10') #100ms time cosntant
     while srs.query('SCNSTATE?').strip()=='2':#scan is running
@@ -90,7 +107,28 @@ for time_con in time_cons:
         values['time'] = (time.perf_counter()-intitial_time)/60 #The time is now in minutes
         save_file.write(str(values['time'])  + "\t" + values['Vx'].strip() + "\t" + values['Vy'].strip()+ "\t" +  values['R'].strip() + "\t" + values['Freq'].strip()+ "\t"+str(time_con)+"\n")
         save_file.flush()
-        time.sleep(time_con*5/1000)
+        ax.set_title('Current Frequency '+values['Freq']+' kHz')
+
+        freqs = np.append(p1.get_xdata(),f:=float(values['Freq']))
+        y1 = np.append(p1.get_ydata(),1000*float(values['Vx'])) # plot the voltages in mV
+        y2 = np.append(p2.get_ydata(),1000*float(values['Vy']))
+        y3 = np.append(p3.get_ydata(),R)
+
+        p1.set_xdata(freqs)
+        p2.set_xdata(freqs)
+        p3.set_xdata(freqs)
+        p1.set_ydata(y1)
+        p2.set_ydata(y2)
+        p3.set_ydata(y3)
+
+        ax.set_xlim(left = freq_range[0], right = f)
+        bx.set_xlim(left = freq_range[0], right = f)
+        cx.set_xlim(left = freq_range[0], right = f)
+        ax.set_ylim(bottom = y1.min(), top = y1.max())
+        bx.set_ylim(bottom = y2.min(), top = y2.max())
+        cx.set_ylim(bottom = y3.min(), top = y3.max())
+
+        plt.pause(time_con*5/1000)#this cnverts time_con from ms to s
 
 
 #######################
