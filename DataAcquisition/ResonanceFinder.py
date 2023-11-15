@@ -39,7 +39,6 @@ input_range_keys = np.array(list(input_range_dict.keys()))
 input_range_keys.sort()
 
 
-
 rm = pyvisa.ResourceManager()
 ls = rm.open_resource('GPIB0::16::INSTR')#this is the lake shore temp controller
 time.sleep(0.1)
@@ -81,13 +80,13 @@ ax.set_xlabel('Frequency (kHz)')
 bx.set_xlabel('Frequency (kHz)')
 cx.set_xlabel('Frequency (kHz)')
 ax.set_ylabel('Vx (mV)')
-bx.set_ylabel('Vx (mV)')
+bx.set_ylabel('Vy (mV)')
 cx.set_ylabel('Voltage Magnitude (mV)')
 
 vx0,vy0,R0,f0 = srs.query('SNAPD?').split(',')
-p1, = ax.plot(float(f0),float(vx0),'ko-')
-p2, = bx.plot(float(f0),float(vy0),'ro-')
-p3, = cx.plot(float(f0),float(R0),'bo-') #plot in mV
+p1, = ax.plot(f1 := float(f0)/1000,1000*float(vx0),'ko-')
+p2, = bx.plot(f1,1000*float(vy0),'ro-')
+p3, = cx.plot(f1,1000*float(R0),'bo-') #plot in mV
 
 values = {}
 intitial_time = time.perf_counter()#get intitial time
@@ -98,6 +97,7 @@ time.sleep(.05)
 for time_con in time_cons:
     srs.write('OFLT 10') #100ms time cosntant
     while srs.query('SCNSTATE?').strip()=='2':#scan is running
+        plt.pause(time_con*5/1000)#this cnverts time_con from ms to s
         values['Vx'],values['Vy'],values['R'],values['Freq'] = srs.query('SNAPD?').split(',') 
         R = float(values['R'])*1000 #this is the Voltage Magnitude in mV
         j = sens_dict[sens_keys[np.logical_not(sens_keys<R)][0]]
@@ -107,9 +107,11 @@ for time_con in time_cons:
         values['time'] = (time.perf_counter()-intitial_time)/60 #The time is now in minutes
         save_file.write(str(values['time'])  + "\t" + values['Vx'].strip() + "\t" + values['Vy'].strip()+ "\t" +  values['R'].strip() + "\t" + values['Freq'].strip()+ "\t"+str(time_con)+"\n")
         save_file.flush()
-        ax.set_title('Current Frequency '+values['Freq']+' kHz')
+        
+        ax.set_title('Current Frequency '+str(round(f:= (float(values['Freq'])/1000),1))+' kHz')
 
-        freqs = np.append(p1.get_xdata(),f:=float(values['Freq']))
+        
+        freqs = np.append(p1.get_xdata(),f)
         y1 = np.append(p1.get_ydata(),1000*float(values['Vx'])) # plot the voltages in mV
         y2 = np.append(p2.get_ydata(),1000*float(values['Vy']))
         y3 = np.append(p3.get_ydata(),R)
@@ -128,7 +130,7 @@ for time_con in time_cons:
         bx.set_ylim(bottom = y2.min(), top = y2.max())
         cx.set_ylim(bottom = y3.min(), top = y3.max())
 
-        plt.pause(time_con*5/1000)#this cnverts time_con from ms to s
+        
 
 
 #######################
