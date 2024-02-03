@@ -130,8 +130,8 @@ set_command_list = [
 ]
 
 save_path = 'C:\\Users\\Contactless\\Desktop\\Contactless Probe\\RawData\\HeProbe\\'
-parameter_path = 'C:\\Users\\mpms\\Desktop\\Contactless Probe\\HeProbe\\HeProbeParameters.txt'
-default_path = 'C:\\Users\\mpms\\Desktop\\Contactless Probe\\HeProbe\\HeProbeDefaultParameters.txt'
+parameter_path = 'C:\\Users\\Contactless\\Desktop\\Contactless Probe\\HeProbe\\HeProbeParameters.txt'
+default_path = 'C:\\Users\\Contactless\\Desktop\\Contactless Probe\\HeProbe\\HeProbeDefaultParameters.txt'
 
 rm = pyvisa.ResourceManager()
 ls = rm.open_resource('GPIB0::16::INSTR')#this is the lake shore temp controller
@@ -139,7 +139,7 @@ time.sleep(0.1)
 srs = rm.open_resource('GPIB0::13::INSTR')#this is the lock-in
 time.sleep(0.1)
 
-print(os.listdir('C:\\Users\\mpms\\Desktop\\Contactless Probe\\HeProbe\\'))
+# print(os.listdir('C:\\Users\\Contactless\\Desktop\\Contactless Probe\\HeProbe\\'))
 #set intial lakeshore parameters
 parameter_file = open(parameter_path, 'r')
 parameters = get_parameters(parameter_file)
