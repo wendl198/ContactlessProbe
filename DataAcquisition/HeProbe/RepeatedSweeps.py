@@ -44,6 +44,9 @@ def change_status(new_status,f):
 
 
 def intiate_scan(instrument,start_freq,end_freq,signal_amp,scan_time,repeat,wait_time = 0.05):
+    for com in set_command_list:
+        instrument.write(com) #execute command
+        time.sleep(wait_time)#wait 50ms
     instrument.write('SLVL '+str(signal_amp)+' MV') #intialize voltage
     time.sleep(wait_time)#wait 50ms
     instrument.write('FREQ '+ str(start_freq) + ' KHZ') #intialize frequency
@@ -55,12 +58,10 @@ def intiate_scan(instrument,start_freq,end_freq,signal_amp,scan_time,repeat,wait
     instrument.write('SCNSEC ' +str(scan_time)) #total scan time in seconds
     time.sleep(wait_time)#wait 50ms
     if repeat:
-        'SCNEND 1', #0 is an individual scan, 1 repeats
+        instrument.write('SCNEND 1') #0 is an individual scan, 1 repeats
     else:
-        'SCNEND 0', #0 is an individual scan, 1 repeats
-    for com in set_command_list:
-        instrument.write(com) #execute command
-        time.sleep(wait_time)#wait 50ms
+        instrument.write('SCNEND 0') #0 is an individual scan, 1 repeats
+    
 
 sens_dict = {1000:0,
             500:1,
@@ -139,7 +140,7 @@ ls = rm.open_resource('GPIB0::16::INSTR')#this is the lake shore temp controller
 time.sleep(0.1)
 srs = rm.open_resource('GPIB0::13::INSTR')#this is the lock-in
 time.sleep(0.1)
-
+srs.write('SCNRST')
 
 #set intial lakeshore parameters
 parameter_file = open(parameter_path, 'r')
@@ -336,8 +337,10 @@ while parameters[6] < 3:#main loop
         
         intiate_scan(srs,500,4000,2000,30,False)
         srs.write('SCNRUN') #start scan
-        time.sleep(0.05)
+        time.sleep(0.1)
         freqs = []
+        a = srs.query('SCNSTATE?').strip() 
+        print(a,a== '2')
         while srs.query('SCNSTATE?').strip() == '2':#scanning
             plt.pause(time_con*3)#this cnverts time_con from ms to s
             s = srs.query('SNAPD?').split(',') #this is [Vx, Vy, Vmag, freq]
@@ -407,7 +410,7 @@ while parameters[6] < 3:#main loop
                 save_file.write(str(values['time']) + "\t" +  str(values['Temp']) + "\t" + str(values['Vx']) + "\t" + str(values['Vy'])+ '\t' + str(values['Vmag']) + '\t' + str(values['freq']) + '\t' + str(0)+"\n")
                 save_file.flush()
         change_status(2,parameter_file)
-        parameters[6] = 2
+        parameters = get_parameters(parameter_file)
     while parameters[6] == 2: #ramp mode
         #ax.legend().set_visible(False)
         ls.write('RAMP 1,1,'+ parameters[0])
