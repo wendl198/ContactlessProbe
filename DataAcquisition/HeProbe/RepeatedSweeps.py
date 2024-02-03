@@ -17,12 +17,13 @@ def get_parameters(f):
                 lines[2].split()[1],#FinalTemp
                 lines[3].split()[1],#SweepTime
                 lines[4].split()[1],#FreqWidth
-                lines[5].split()[1],#FreqWidth
+                lines[5].split()[1],#SignalAmp
                 int(lines[6].split()[1]),#RampingStatus
-                [lines[7].split()[1],lines[4].split()[2],lines[4].split()[3]],#PID paratmeters
+                [lines[7].split()[1],lines[7].split()[2],lines[7].split()[3]],#PID paratmeters
                 int(lines[8].split()[1]),#Autoscale boolean
                 lines[9])#time scale
-    except:
+    except Exception as error:
+        #print(error)
         print('Error Reading Parameters: Edit parameters.txt or redownload it from https://github.com/wendl198/ContactlessProbe.')
         print('Warning: Data is not currently being recorded.')
         time.sleep(1)
@@ -139,7 +140,7 @@ time.sleep(0.1)
 srs = rm.open_resource('GPIB0::13::INSTR')#this is the lock-in
 time.sleep(0.1)
 
-# print(os.listdir('C:\\Users\\Contactless\\Desktop\\Contactless Probe\\HeProbe\\'))
+
 #set intial lakeshore parameters
 parameter_file = open(parameter_path, 'r')
 parameters = get_parameters(parameter_file)
