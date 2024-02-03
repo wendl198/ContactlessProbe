@@ -247,8 +247,8 @@ time.sleep(.05)
 # Main Loop
 #######################
 
-while parameters[3] < 3:#main loop
-    while parameters[3] == 0: #idlely collecting data
+while parameters[6] < 3:#main loop
+    while parameters[6] == 0: #idlely collecting data
         ########################
         # Update Parameters
         ########################
@@ -314,7 +314,7 @@ while parameters[3] < 3:#main loop
 
         plt.pause(pause_time) #this displays the graph
 
-    while parameters[3] == 1: #ramp mode
+    while parameters[6] == 1: #ramp mode
         #ax.legend().set_visible(False)
         ls.write('RAMP 1,1,'+ parameters[0])
         time.sleep(0.05)
@@ -327,7 +327,7 @@ while parameters[3] < 3:#main loop
         while srs.query('SCNSTATE?').strip() == '2':#scanning
             pass
         change_status(2,parameter_file)
-    while parameters[3] == 2: #ramp mode
+    while parameters[6] == 2: #ramp mode
         #ax.legend().set_visible(False)
         ls.write('RAMP 1,1,'+ parameters[0])
         time.sleep(0.05)
