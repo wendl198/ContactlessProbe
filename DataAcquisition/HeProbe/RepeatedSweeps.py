@@ -46,21 +46,23 @@ def change_status(new_status,f):
 def intiate_scan(instrument,start_freq,end_freq,signal_amp,scan_time,repeat,wait_time = 0.05):
     for com in set_command_list:
         instrument.write(com) #execute command
-        time.sleep(wait_time)#wait 50ms
+        time.sleep(wait_time)#wait
     instrument.write('SLVL '+str(signal_amp)+' MV') #intialize voltage
-    time.sleep(wait_time)#wait 50ms
+    time.sleep(wait_time)#wait
     instrument.write('FREQ '+ str(start_freq) + ' KHZ') #intialize frequency
-    time.sleep(wait_time)#wait 50ms
+    time.sleep(wait_time)#wait
     instrument.write('SCNFREQ 0, '+str(start_freq)+' KHZ') #scan freq range
-    time.sleep(wait_time)#wait 50ms
+    time.sleep(wait_time)#wait
     instrument.write('SCNFREQ 1, '+str(end_freq)+' KHZ')
-    time.sleep(wait_time)#wait 50ms
+    time.sleep(wait_time)#wait
     instrument.write('SCNSEC ' +str(scan_time)) #total scan time in seconds
-    time.sleep(wait_time)#wait 50ms
+    time.sleep(wait_time)#wait
     if repeat:
         instrument.write('SCNEND 1') #0 is an individual scan, 1 repeats
     else:
         instrument.write('SCNEND 0') #0 is an individual scan, 1 repeats
+    time.sleep(wait_time)
+    instrument.write('SCNENBL ON') #ready scan
     
 
 sens_dict = {1000:0,
@@ -121,14 +123,13 @@ set_command_list = [
     'SCNRST', #reset scan
     'SCNPAR F', #set freq scan
     'SCNLOG 0',#set linear scan with 0 log scan with 1
-    'SCNINRVL 2', #fastest freq scan time update resolution 0 =8ms 2=31ms
+    'SCNINRVL 2', #freq scan time update resolution 0 =8ms 2=31ms
     'ISRC 0', #read only A voltage
     'OFLT '+ str(i), #set time constant
     'CDSP 0, 0', #first data point is vx
     'CDSP 1, 1', #second is vy
     'CDSP 2, 2', #third is R
     'CDSP 3, 15', #fourth is freq
-    'SCNENBL ON' #ready scan
 ]
 
 save_path = 'C:\\Users\\Contactless\\Desktop\\Contactless Probe\\RawData\\HeProbe\\'
