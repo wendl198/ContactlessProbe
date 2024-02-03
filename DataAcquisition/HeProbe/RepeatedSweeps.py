@@ -205,8 +205,8 @@ ax = fig.add_subplot(2, 3, 1)
 bx = fig.add_subplot(2, 3, 2)
 cx = fig.add_subplot(2, 3, 3)
 dx = fig.add_subplot(2, 3, 4)
-ex = fig.add_subplot(2, 3, 4)
-fx = fig.add_subplot(2, 3, 4)
+ex = fig.add_subplot(2, 3, 5)
+fx = fig.add_subplot(2, 3, 6)
 ax.set_xlabel('Time (min)')
 bx.set_xlabel('Temperature (K)')
 cx.set_xlabel('Temperature (K)')
@@ -235,10 +235,10 @@ sweep_num = 0
 current_datetime = datetime.now()
 formatted_datetime = current_datetime.strftime("%m/%d/%Y %H:%M:%S")
 save_file = open(os.path.join(save_path, input("Please type the file name here: ") + ".dat"), "a")
-save_file.write("Time (min)"   + "\t"+ 'Temp (K)'+"\t"+"Vx (V)" + "\t" + "Vy (V)"+ "\t" + "R (V)"+ "\t" + 'Freq (kHz)'+"\t"+ "Sweep Number: Current Time is "+formatted_datetime+'\n')
+save_file.write("Time (min)"   + "\t"+ 'Temp (K)'+"\t"+"Vx (V)" + "\t" + "Vy (V)"+ "\t" + "R (V)"+ "\t" + 'Freq (Hz)'+"\t"+ "Sweep Number: Current Time is "+formatted_datetime+'\n')
 intitial_time = time.perf_counter()#get intitial time
 
-srs.write('SCNRUN') #start scan
+
 # print('Sweeping at ' + str((freq_range[1]-freq_range[0])/scan_time*60) +' kHz/min')
 time.sleep(.05)
 
@@ -256,14 +256,15 @@ while parameters[6] < 3:#main loop
 
         values['time'] = (time.perf_counter()-intitial_time)/60 #The time is now in minutes
         values['Temp'] = float(ls.query('KRDG? a')) #temp in K
-        vs = srs.query('SNAPD?').split(',') #this is [Vx, Vy, Vmag, Theta]
+        vs = srs.query('SNAPD?').split(',') #this is [Vx, Vy, Vmag, freq]
         values['Vx'] = float(vs[0])
         values['Vy'] = float(vs[1])
         values['Vmag'] = float(vs[2])
         values['freq'] = float(vs[3])
 
         ax.set_title('CurrTemp ='+str(values['Temp']),fontsize = 12)
-        bx.set_title('Setpoint ='+str(ls.query('SETP? 1'))[1:6],fontsize = 12)
+        ax.set_title('CurrFreq ='+str(values['freq']),fontsize = 12)
+        cx.set_title('Temp Setpoint ='+str(ls.query('SETP? 1'))[1:6],fontsize = 12)
 
         ls.write('RAMP 1,0,'+ parameters[0])# Turns off ramping
         time.sleep(0.05)
@@ -316,17 +317,97 @@ while parameters[6] < 3:#main loop
 
     while parameters[6] == 1: #ramp mode
         #ax.legend().set_visible(False)
-        ls.write('RAMP 1,1,'+ parameters[0])
+        ########################
+        # Update Parameters
+        ########################
+        parameters = get_parameters(parameter_file)
+
+        values['time'] = (time.perf_counter()-intitial_time)/60 #The time is now in minutes
+        values['Temp'] = float(ls.query('KRDG? a')) #temp in K
+        vs = srs.query('SNAPD?').split(',') #this is [Vx, Vy, Vmag, Theta]
+        values['Vx'] = float(vs[0])
+        values['Vy'] = float(vs[1])
+        values['Vmag'] = float(vs[2])
+        values['freq'] = float(vs[3])
+
+        ls.write('RAMP 1,0,'+ parameters[0])# Turns off ramping
         time.sleep(0.05)
-        ls.write('SETP 1,'+ parameters[2])#this sets the setpoint to the final temp
-        time.sleep(0.05)
-        ls.write('PID 1,'+ parameters[4][0]+','+ parameters[4][1]+',' + parameters[4][2])#this sets the setpoint to the final temp
-        time.sleep(0.05)
-        ls.write('Range 1,1') #this turns the heater to low
+        ls.write('SETP 1,'+ parameters[1])# intializes temperature for ramping
+        
         intiate_scan(srs,500,4000,2000,30,False)
+        srs.write('SCNRUN') #start scan
+        time.sleep(0.05)
+        freqs = []
         while srs.query('SCNSTATE?').strip() == '2':#scanning
-            pass
+            plt.pause(time_con*3)#this cnverts time_con from ms to s
+            s = srs.query('SNAPD?').split(',') #this is [Vx, Vy, Vmag, freq]
+            values['Vx'] = float(vs[0])
+            values['Vy'] = float(vs[1])
+            values['Vmag'] = float(vs[2])
+            values['freq'] = float(vs[3]) 
+            R = values['Vmag']*1000 #this is the Voltage Magnitude in mV
+            j = sens_dict[sens_keys[np.logical_not(sens_keys<R)][0]]
+            k = input_range_dict[input_range_keys[np.logical_not(input_range_keys<R)][0]]
+            srs.write('IRNG '+str(k))
+            srs.write('SCAL '+str(j))
+            values['time'] = (time.perf_counter()-intitial_time)/60 #The time is now in minutes
+            #######################
+            # Plotting
+            #######################
+
+            # update data
+            times = np.append(p1.get_xdata(),values['time'])
+            freqs.append(values['freq']/1000)
+            y1 = np.append(p1.get_ydata(),values['Temp'])
+            y4 = np.append(p4.get_ydata(),1000*values['Vx']) # plot the voltages in mV
+            y5 = np.append(p5.get_ydata(),1000*values['Vy'])
+            y6 = np.append(p6.get_ydata(),1000*values['Vmag'])
+
+            p1.set_xdata(times)
+            p4.set_xdata(freqs)
+            p5.set_xdata(freqs)
+            p6.set_xdata(freqs)
+            p4.set_ydata(y4)
+            p5.set_ydata(y5)
+            p6.set_ydata(y6)
+
+            #update limits 
+            dx.set_xlim(left = 500, right = values['freq']/1000)
+            ex.set_xlim(left = 500, right = values['freq']/1000)
+            fx.set_xlim(left = 500, right = values['freq']/1000)
+            dx.set_ylim(bottom = y4.min(), top = y4.max())
+            ex.set_ylim(bottom = y5.min(), top = y5.max())
+            fx.set_ylim(bottom = y6.min(), top = y6.max())
+            if parameters[8]:
+                ax.set_xlim(left = 0, right = values['time'])
+                ax.set_ylim(bottom = y1.min(), top = y1.max())
+            else:
+                if len(parameters[6]) == 2:
+                    t0 = float(parameters[6][0])
+                    if t0> times[-1]:
+                        t0 = times[-1]-.1
+                    t1 = float(parameters[6][1])
+                    inds = np.logical_and(times >= t0, times <= t1)
+                    ax.set_xlim(left = t0,right = t1)
+                elif len(parameters[6]) == 1:
+                    t0 = float(parameters[6][0])
+                    if t0> times[-1]:
+                        t0 = times[-1]-.1
+                    inds = np.logical_not(times<t0)
+                    ax.set_xlim(left = t0,right = values['time'])
+                else:
+                    inds = np.logical_not(times<0)
+                    ax.set_xlim(left = 0, right = values['time'])
+                ax.set_ylim(bottom = y1[inds].min(), top = y1[inds].max())
+
+                #######################
+                # Save Data
+                #######################
+
+                save_file.write(str(values['time']) + "\t" +  str(values['Temp']) + "\t" + str(values['Vx']) + "\t" + str(values['Vy'])+ '\t' + str(values['Vmag']) + '\t' + str(values['freq']) + '\t' + str(0)+"\n")
+                save_file.flush()
         change_status(2,parameter_file)
+        parameters[6] = 2
     while parameters[6] == 2: #ramp mode
         #ax.legend().set_visible(False)
         ls.write('RAMP 1,1,'+ parameters[0])
