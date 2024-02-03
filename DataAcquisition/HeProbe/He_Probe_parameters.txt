@@ -1,0 +1,10 @@
+RampRate(K/min): 1
+StartTemp(K): 10
+FinalTemp(K): 300
+TimeConstant(ms): 1
+SweepTime(s): 15
+FreqWidth(kHz): 400
+Status: 0
+PID: 23 100 150
+AutoScale?: 1
+TimeScale: 0 1
