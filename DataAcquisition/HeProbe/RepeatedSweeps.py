@@ -46,23 +46,21 @@ def change_status(new_status,f):
 def intiate_scan(instrument,start_freq,end_freq,signal_amp,scan_time,repeat,wait_time = 0.05):
     for com in set_command_list:
         instrument.write(com) #execute command
-        time.sleep(wait_time)#wait
+        time.sleep(wait_time)#wait 50ms
     instrument.write('SLVL '+str(signal_amp)+' MV') #intialize voltage
-    time.sleep(wait_time)#wait
+    time.sleep(wait_time)#wait 50ms
     instrument.write('FREQ '+ str(start_freq) + ' KHZ') #intialize frequency
-    time.sleep(wait_time)#wait
+    time.sleep(wait_time)#wait 50ms
     instrument.write('SCNFREQ 0, '+str(start_freq)+' KHZ') #scan freq range
-    time.sleep(wait_time)#wait
+    time.sleep(wait_time)#wait 50ms
     instrument.write('SCNFREQ 1, '+str(end_freq)+' KHZ')
-    time.sleep(wait_time)#wait
+    time.sleep(wait_time)#wait 50ms
     instrument.write('SCNSEC ' +str(scan_time)) #total scan time in seconds
-    time.sleep(wait_time)#wait
+    time.sleep(wait_time)#wait 50ms
     if repeat:
         instrument.write('SCNEND 1') #0 is an individual scan, 1 repeats
     else:
         instrument.write('SCNEND 0') #0 is an individual scan, 1 repeats
-    time.sleep(wait_time)
-    instrument.write('SCNENBL ON') #ready scan
     
 
 sens_dict = {1000:0,
@@ -123,13 +121,14 @@ set_command_list = [
     'SCNRST', #reset scan
     'SCNPAR F', #set freq scan
     'SCNLOG 0',#set linear scan with 0 log scan with 1
-    'SCNINRVL 2', #freq scan time update resolution 0 =8ms 2=31ms
+    'SCNINRVL 2', #fastest freq scan time update resolution 0 =8ms 2=31ms
     'ISRC 0', #read only A voltage
     'OFLT '+ str(i), #set time constant
     'CDSP 0, 0', #first data point is vx
     'CDSP 1, 1', #second is vy
     'CDSP 2, 2', #third is R
     'CDSP 3, 15', #fourth is freq
+    'SCNENBL ON' #ready scan
 ]
 
 save_path = 'C:\\Users\\Contactless\\Desktop\\Contactless Probe\\RawData\\HeProbe\\'
@@ -273,6 +272,7 @@ while parameters[6] < 3:#main loop
         ls.write('SETP 1,'+ parameters[1])# intializes temperature for ramping
         time.sleep(0.1)
         ls.write('Range 1,0') #this turns the heater off
+        srs.write('SCNRST')
 
         #######################
         # Plotting only temp v time
@@ -340,10 +340,16 @@ while parameters[6] < 3:#main loop
         srs.write('SCNRUN') #start scan
         time.sleep(0.1)
         freqs = []
-        a = srs.query('SCNSTATE?').strip() 
-        print(a,a== '2')
+        #clear plots
+        p4.set_xdata([])
+        p5.set_xdata([])
+        p6.set_xdata([])
+        p4.set_ydata([])
+        p5.set_ydata([])
+        p6.set_ydata([])
+        
         while srs.query('SCNSTATE?').strip() == '2':#scanning
-            plt.pause(time_con*3)#this cnverts time_con from ms to s
+            
             s = srs.query('SNAPD?').split(',') #this is [Vx, Vy, Vmag, freq]
             values['Vx'] = float(vs[0])
             values['Vy'] = float(vs[1])
@@ -410,6 +416,10 @@ while parameters[6] < 3:#main loop
 
                 save_file.write(str(values['time']) + "\t" +  str(values['Temp']) + "\t" + str(values['Vx']) + "\t" + str(values['Vy'])+ '\t' + str(values['Vmag']) + '\t' + str(values['freq']) + '\t' + str(0)+"\n")
                 save_file.flush()
+
+                
+                plt.pause(time_con*3)#this cnverts time_con from ms to s
+            
         change_status(2,parameter_file)
         parameters = get_parameters(parameter_file)
     while parameters[6] == 2: #ramp mode
