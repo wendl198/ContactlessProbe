@@ -322,19 +322,19 @@ while parameters[6] < 3:#main loop
         ########################
         # Update Parameters
         ########################
-        parameters = get_parameters(parameter_file)
+        # parameters = get_parameters(parameter_file)
 
-        values['time'] = (time.perf_counter()-intitial_time)/60 #The time is now in minutes
-        values['Temp'] = float(ls.query('KRDG? a')) #temp in K
-        vs = srs.query('SNAPD?').split(',') #this is [Vx, Vy, Vmag, Theta]
-        values['Vx'] = float(vs[0])
-        values['Vy'] = float(vs[1])
-        values['Vmag'] = float(vs[2])
-        values['freq'] = float(vs[3])
+        # values['time'] = (time.perf_counter()-intitial_time)/60 #The time is now in minutes
+        # values['Temp'] = float(ls.query('KRDG? a')) #temp in K
+        # vs = srs.query('SNAPD?').split(',') #this is [Vx, Vy, Vmag, Theta]
+        # values['Vx'] = float(vs[0])
+        # values['Vy'] = float(vs[1])
+        # values['Vmag'] = float(vs[2])
+        # values['freq'] = float(vs[3])
 
-        ls.write('RAMP 1,0,'+ parameters[0])# Turns off ramping
-        time.sleep(0.05)
-        ls.write('SETP 1,'+ parameters[1])# intializes temperature for ramping
+        # ls.write('RAMP 1,0,'+ parameters[0])# Turns off ramping
+        # time.sleep(0.05)
+        # ls.write('SETP 1,'+ parameters[1])# intializes temperature for ramping
         
         intiate_scan(srs,500,4000,2000,30,False)
         srs.write('SCNRUN') #start scan
@@ -432,90 +432,90 @@ while parameters[6] < 3:#main loop
         time.sleep(0.05)
         ls.write('Range 1,1') #this turns the heater to low
     
-    #######################
-    # Plotting
-    #######################
+    # #######################
+    # # Plotting
+    # #######################
 
-    # update data
-    times = np.append(p1.get_xdata(),values['time'])
-    y1 = np.append(p1.get_ydata(),values['Temp'])
-    y3 = np.append(p3.get_ydata(),1000*values['Vx']) # plot the voltages in mV
-    y4 = np.append(p4.get_ydata(),1000*values['Vy'])
-    y2 = np.angle(y3-float(parameters[7][0])+(y4-float(parameters[7][1]))*1j)
+    # # update data
+    # times = np.append(p1.get_xdata(),values['time'])
+    # y1 = np.append(p1.get_ydata(),values['Temp'])
+    # y3 = np.append(p3.get_ydata(),1000*values['Vx']) # plot the voltages in mV
+    # y4 = np.append(p4.get_ydata(),1000*values['Vy'])
+    # y2 = np.angle(y3-float(parameters[7][0])+(y4-float(parameters[7][1]))*1j)
 
-    p1.set_xdata(times)
-    p3.set_xdata(times)
-    p4.set_xdata(times)
-    p1.set_ydata(y1)
-    p3.set_ydata(y3)
-    p4.set_ydata(y4)
+    # p1.set_xdata(times)
+    # p3.set_xdata(times)
+    # p4.set_xdata(times)
+    # p1.set_ydata(y1)
+    # p3.set_ydata(y3)
+    # p4.set_ydata(y4)
 
-    #update limits 
-    # Note p2 is special because temperature on x axis
+    # #update limits 
+    # # Note p2 is special because temperature on x axis
 
-    if parameters[5]:
-        p2.set_xdata(y1)
-        p2.set_ydata(y2)
-        ax.set_xlim(left = 0, right = values['time'])
-        bx.set_xlim(left = y1.min(), right = y1.max())
-        cx.set_xlim(left = 0, right = values['time'])
-        dx.set_xlim(left = 0, right = values['time'])
-        ax.set_ylim(bottom = y1.min(), top = y1.max())
-        bx.set_ylim(bottom = y2.min(), top = y2.max())
-        cx.set_ylim(bottom = y3.min(), top = y3.max())
-        dx.set_ylim(bottom = y4.min(), top = y4.max())
-    else:
-        if len(parameters[6]) == 2:
-            t0 = float(parameters[6][0])
-            if t0> times[-1]:
-                t0 = times[-1]-.1
-            t1 = float(parameters[6][1])
-            inds = np.logical_and(times >= t0, times <= t1)
-            p2.set_xdata(y1[inds])
-            p2.set_ydata(y2[inds])
-            ax.set_xlim(left = t0,right = t1)
-            bx.set_xlim(left = y1[inds].min(),right = y1[inds].max())
-            cx.set_xlim(left = t0,right = t1)
-            dx.set_xlim(left = t0,right = t1)
-        elif len(parameters[6]) == 1:
-            t0 = float(parameters[6][0])
-            if t0> times[-1]:
-                t0 = times[-1]-.1
-            inds = np.logical_not(times<t0)
-            p2.set_xdata(y1[inds])
-            p2.set_ydata(y2[inds])
-            ax.set_xlim(left = t0,right = values['time'])
-            bx.set_xlim(left = y1[inds].min(),right = y1[inds].max())
-            cx.set_xlim(left = t0,right = values['time'])
-            dx.set_xlim(left = t0,right = values['time'])
-        else:
-            inds = np.logical_not(times<0)
-            p2.set_xdata(y1)
-            p2.set_ydata(y2)
-            ax.set_xlim(left = 0, right = values['time'])
-            bx.set_xlim(left = y1.min(), right = y1.max())
-            cx.set_xlim(left = 0, right = values['time'])
-            dx.set_xlim(left = 0, right = values['time'])
-        ax.set_ylim(bottom = y1[inds].min(), top = y1[inds].max())
-        bx.set_ylim(bottom = y2[inds].min(), top = y2[inds].max())
-        cx.set_ylim(bottom = y3[inds].min(), top = y3[inds].max())
-        dx.set_ylim(bottom = y4[inds].min(), top = y4[inds].max())
+    # if parameters[5]:
+    #     p2.set_xdata(y1)
+    #     p2.set_ydata(y2)
+    #     ax.set_xlim(left = 0, right = values['time'])
+    #     bx.set_xlim(left = y1.min(), right = y1.max())
+    #     cx.set_xlim(left = 0, right = values['time'])
+    #     dx.set_xlim(left = 0, right = values['time'])
+    #     ax.set_ylim(bottom = y1.min(), top = y1.max())
+    #     bx.set_ylim(bottom = y2.min(), top = y2.max())
+    #     cx.set_ylim(bottom = y3.min(), top = y3.max())
+    #     dx.set_ylim(bottom = y4.min(), top = y4.max())
+    # else:
+    #     if len(parameters[6]) == 2:
+    #         t0 = float(parameters[6][0])
+    #         if t0> times[-1]:
+    #             t0 = times[-1]-.1
+    #         t1 = float(parameters[6][1])
+    #         inds = np.logical_and(times >= t0, times <= t1)
+    #         p2.set_xdata(y1[inds])
+    #         p2.set_ydata(y2[inds])
+    #         ax.set_xlim(left = t0,right = t1)
+    #         bx.set_xlim(left = y1[inds].min(),right = y1[inds].max())
+    #         cx.set_xlim(left = t0,right = t1)
+    #         dx.set_xlim(left = t0,right = t1)
+    #     elif len(parameters[6]) == 1:
+    #         t0 = float(parameters[6][0])
+    #         if t0> times[-1]:
+    #             t0 = times[-1]-.1
+    #         inds = np.logical_not(times<t0)
+    #         p2.set_xdata(y1[inds])
+    #         p2.set_ydata(y2[inds])
+    #         ax.set_xlim(left = t0,right = values['time'])
+    #         bx.set_xlim(left = y1[inds].min(),right = y1[inds].max())
+    #         cx.set_xlim(left = t0,right = values['time'])
+    #         dx.set_xlim(left = t0,right = values['time'])
+    #     else:
+    #         inds = np.logical_not(times<0)
+    #         p2.set_xdata(y1)
+    #         p2.set_ydata(y2)
+    #         ax.set_xlim(left = 0, right = values['time'])
+    #         bx.set_xlim(left = y1.min(), right = y1.max())
+    #         cx.set_xlim(left = 0, right = values['time'])
+    #         dx.set_xlim(left = 0, right = values['time'])
+    #     ax.set_ylim(bottom = y1[inds].min(), top = y1[inds].max())
+    #     bx.set_ylim(bottom = y2[inds].min(), top = y2[inds].max())
+    #     cx.set_ylim(bottom = y3[inds].min(), top = y3[inds].max())
+    #     dx.set_ylim(bottom = y4[inds].min(), top = y4[inds].max())
 
     
 
-    #######################
-    # Save Data
-    #######################
+    # #######################
+    # # Save Data
+    # #######################
 
-    save_file.write(str(values['time']) + "\t" +  str(values['Temp']) + "\t" + str(values['Vx']) + "\t" + str(values['Vy'])+"\n")
-    save_file.flush()#this will save the data without closing the file
+    # save_file.write(str(values['time']) + "\t" +  str(values['Temp']) + "\t" + str(values['Vx']) + "\t" + str(values['Vy'])+"\n")
+    # save_file.flush()#this will save the data without closing the file
 
 
-    plt.pause(pause_time) #this displays the graph
+    # plt.pause(pause_time) #this displays the graph
 
-    #check if final temp is reached
-    # if float(parameters[2]) <= values['Temp']:
-    #     change_status(0,parameter_file) #stop ramping, but still collect data
+    # #check if final temp is reached
+    # # if float(parameters[2]) <= values['Temp']:
+    # #     change_status(0,parameter_file) #stop ramping, but still collect data
 
 
 
