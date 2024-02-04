@@ -46,17 +46,17 @@ def change_status(new_status,f):
 def intiate_scan(instrument,start_freq,end_freq,signal_amp,scan_time,repeat,wait_time = 0.05):
     for com in set_command_list:
         instrument.write(com) #execute command
-        time.sleep(wait_time)#wait 50ms
+        time.sleep(wait_time)#wait
     instrument.write('SLVL '+str(signal_amp)+' MV') #intialize voltage
-    time.sleep(wait_time)#wait 50ms
+    time.sleep(wait_time)#wait
     instrument.write('FREQ '+ str(start_freq) + ' KHZ') #intialize frequency
-    time.sleep(wait_time)#wait 50ms
+    time.sleep(wait_time)#wait
     instrument.write('SCNFREQ 0, '+str(start_freq)+' KHZ') #scan freq range
-    time.sleep(wait_time)#wait 50ms
+    time.sleep(wait_time)#wait
     instrument.write('SCNFREQ 1, '+str(end_freq)+' KHZ')
-    time.sleep(wait_time)#wait 50ms
+    time.sleep(wait_time)#wait
     instrument.write('SCNSEC ' +str(scan_time)) #total scan time in seconds
-    time.sleep(wait_time)#wait 50ms
+    time.sleep(wait_time)#wait
     if repeat:
         instrument.write('SCNEND 2') #0 is an individual scan, 1 repeats
     else:
@@ -140,7 +140,7 @@ ls = rm.open_resource('GPIB0::16::INSTR')#this is the lake shore temp controller
 time.sleep(0.1)
 srs = rm.open_resource('GPIB0::13::INSTR')#this is the lock-in
 time.sleep(0.1)
-srs.write('SCNRST')
+srs.write('SCNENBL 0')
 
 #set intial lakeshore parameters
 parameter_file = open(parameter_path, 'r')
@@ -150,55 +150,6 @@ time.sleep(0.05)
 ls.write('SETP 1,'+ parameters[1]) #this is the starting temp for the ramp
 time.sleep(0.05)
 ls.write('Range 1,0') #this turns the heater off
-
-#set scan parameters
-# initial_command_list = [
-#     'SCNRST', #reset scan
-#     'SLVL '+parameters[6]+' MV', #intialize voltage
-#     'FREQ '+ str(500) + ' KHZ' #intialize frequency
-#     'SCNPAR F', #set freq scan
-#     'SCNFREQ 0, '+str(500)+' KHZ', #scan freq range
-#     'SCNFREQ 1, '+str(4000)+' KHZ',
-#     'SCNSEC ' +str(parameters[4]), #total scan time in seconds
-#     'SCNLOG 0',#set linear scan with 0 log scan with 1
-#     'SCNEND 0',
-#     'SCNINRVL 0',
-#     'ISRC 0',
-#     'CDSP 0, 0', #first data point is vx
-#     'CDSP 1, 1', #second is vy
-#     'CDSP 2, 2', #third is R
-#     'CDSP 3, 15', #fourth is freq
-#     'SCNENBL ON' #ready scan
-# ]
-
-# #set scan parameters
-# command_list = [
-#     'SCNRST', #reset scan
-#     'SLVL '+str(signal_amp)+' MV', #intialize voltage
-#     'FREQ '+ str(freq_range[0]) + ' KHZ' #intialize frequency
-#     'SCNPAR F', #set freq scan
-#     'SCNFREQ 0, '+str(freq_range[0])+' KHZ', #scan freq range
-#     'SCNFREQ 1, '+str(freq_range[1])+' KHZ',
-#     'SCNSEC ' +str(scan_time), #total scan time in seconds
-#     'SCNLOG 0',#set linear scan with 0 log scan with 1
-#     'SCNEND 0',
-#     'SCNINRVL 0',
-#     'ISRC 0',
-#     'CDSP 0, 0', #first data point is vx
-#     'CDSP 1, 1', #second is vy
-#     'CDSP 2, 2', #third is R
-#     'CDSP 3, 15', #fourth is freq
-#     'SCNENBL ON' #ready scan
-# ]
-
-
-
-
-
-
-# for com in command_list:
-#     srs.write(com) #execute command
-#     time.sleep(0.05)#wait 50ms
 
 
 fig = plt.figure(constrained_layout = True)
@@ -273,7 +224,7 @@ while parameters[6] < 3:#main loop
         ls.write('SETP 1,'+ parameters[1])# intializes temperature for ramping
         time.sleep(0.1)
         ls.write('Range 1,0') #this turns the heater off
-        srs.write('SCNRST')
+        srs.write('SCNENBL 0')
 
         #######################
         # Plotting only temp v time
@@ -321,27 +272,7 @@ while parameters[6] < 3:#main loop
         
 
     while parameters[6] == 1: #ramp mode
-        #ax.legend().set_visible(False)
-        ########################
-        # Update Parameters
-        ########################
-        # parameters = get_parameters(parameter_file)
-
-        # values['time'] = (time.perf_counter()-intitial_time)/60 #The time is now in minutes
-        # values['Temp'] = float(ls.query('KRDG? a')) #temp in K
-        # vs = srs.query('SNAPD?').split(',') #this is [Vx, Vy, Vmag, Theta]
-        # values['Vx'] = float(vs[0])
-        # values['Vy'] = float(vs[1])
-        # values['Vmag'] = float(vs[2])
-        # values['freq'] = float(vs[3])
-
-        # ls.write('RAMP 1,0,'+ parameters[0])# Turns off ramping
-        # time.sleep(0.05)
-        # ls.write('SETP 1,'+ parameters[1])# intializes temperature for ramping
-        
         intiate_scan(srs,500,4000,2000,30,False)
-
-
         vs = srs.query('SNAPD?').split(',') #this is [Vx, Vy, Vmag, freq]
         values['Vx'] = float(vs[0])
         values['Vy'] = float(vs[1])
@@ -430,11 +361,14 @@ while parameters[6] < 3:#main loop
             save_file.write(str(values['time']) + "\t" +  str(values['Temp']) + "\t" + str(values['Vx']) + "\t" + str(values['Vy'])+ '\t' + str(values['Vmag']) + '\t' + str(values['freq']) + '\t' + str(0)+"\n")
             save_file.flush()
 
-            plt.pause(0.031)#this cnverts time_con from ms to s
-            
+            plt.pause(0.031)
+
+        f_center = p6.get_xdata()[np.argmin(p6.get_ydata())]
+        print(f_center)
+        #start temp scan
         change_status(2,parameter_file)
         parameters = get_parameters(parameter_file)
-        srs.write('SCNRST')
+        srs.write('SCNENBL 0')
         time.sleep(.1)
     while parameters[6] == 2: #ramp mode
         #ax.legend().set_visible(False)
@@ -583,7 +517,7 @@ ls.write('SETP 1,'+ parameters[1]) #set temp back to start
 time.sleep(0.05)
 ls.write('Range 1,0') #this turns the heater off
 time.sleep(0.05)
-srs.write('SCNRST')
+srs.write('SCNENBL 0')
 ls.close()
 srs.close()
 
