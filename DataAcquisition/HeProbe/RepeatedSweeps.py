@@ -33,7 +33,7 @@ def get_parameters(f):
 def change_status(new_status,f):
     f.seek(0)
     lines = f.readlines()
-    lines[6] = lines[6][:-2] + str(new_status) +'\n'
+    lines[6] = 'Status: ' + str(new_status) +' 0=idle,1=intialscan,2=repeatedscan,>2=end\n'
     file1 = open(parameter_path,"w")#write mode
     file1.writelines(lines)
     file1.close()
@@ -58,7 +58,7 @@ def intiate_scan(instrument,start_freq,end_freq,signal_amp,scan_time,repeat,wait
     instrument.write('SCNSEC ' +str(scan_time)) #total scan time in seconds
     time.sleep(wait_time)#wait 50ms
     if repeat:
-        instrument.write('SCNEND 1') #0 is an individual scan, 1 repeats
+        instrument.write('SCNEND 2') #0 is an individual scan, 1 repeats
     else:
         instrument.write('SCNEND 0') #0 is an individual scan, 1 repeats
     
@@ -249,6 +249,7 @@ time.sleep(.05)
 #######################
 
 while parameters[6] < 3:#main loop
+    print('mainloop')
     while parameters[6] == 0: #idlely collecting data
         ########################
         # Update Parameters
@@ -317,6 +318,8 @@ while parameters[6] < 3:#main loop
 
         plt.pause(pause_time) #this displays the graph
 
+        
+
     while parameters[6] == 1: #ramp mode
         #ax.legend().set_visible(False)
         ########################
@@ -337,20 +340,27 @@ while parameters[6] < 3:#main loop
         # ls.write('SETP 1,'+ parameters[1])# intializes temperature for ramping
         
         intiate_scan(srs,500,4000,2000,30,False)
+
+
+        vs = srs.query('SNAPD?').split(',') #this is [Vx, Vy, Vmag, freq]
+        values['Vx'] = float(vs[0])
+        values['Vy'] = float(vs[1])
+        values['Vmag'] = float(vs[2])
+        values['freq'] = float(vs[3])
+        p4.set_xdata([values['freq']])
+        p5.set_xdata([values['freq']])
+        p6.set_xdata([values['freq']])
+        p4.set_ydata([values['Vx']])
+        p5.set_ydata([values['Vy']])
+        p6.set_ydata([values['Vmag']])
+        
         srs.write('SCNRUN') #start scan
         time.sleep(0.1)
-        freqs = []
-        #clear plots
-        p4.set_xdata([])
-        p5.set_xdata([])
-        p6.set_xdata([])
-        p4.set_ydata([])
-        p5.set_ydata([])
-        p6.set_ydata([])
+        freqs = [values['freq']/1000]
         
         while srs.query('SCNSTATE?').strip() == '2':#scanning
             
-            s = srs.query('SNAPD?').split(',') #this is [Vx, Vy, Vmag, freq]
+            vs = srs.query('SNAPD?').split(',') #this is [Vx, Vy, Vmag, freq]
             values['Vx'] = float(vs[0])
             values['Vy'] = float(vs[1])
             values['Vmag'] = float(vs[2])
@@ -361,6 +371,8 @@ while parameters[6] < 3:#main loop
             srs.write('IRNG '+str(k))
             srs.write('SCAL '+str(j))
             values['time'] = (time.perf_counter()-intitial_time)/60 #The time is now in minutes
+            values['Temp'] = float(ls.query('KRDG? a')) #temp in K
+
             #######################
             # Plotting
             #######################
@@ -372,11 +384,12 @@ while parameters[6] < 3:#main loop
             y4 = np.append(p4.get_ydata(),1000*values['Vx']) # plot the voltages in mV
             y5 = np.append(p5.get_ydata(),1000*values['Vy'])
             y6 = np.append(p6.get_ydata(),1000*values['Vmag'])
-
+            
             p1.set_xdata(times)
             p4.set_xdata(freqs)
             p5.set_xdata(freqs)
             p6.set_xdata(freqs)
+            p1.set_ydata(y1)
             p4.set_ydata(y4)
             p5.set_ydata(y5)
             p6.set_ydata(y6)
@@ -410,18 +423,19 @@ while parameters[6] < 3:#main loop
                     ax.set_xlim(left = 0, right = values['time'])
                 ax.set_ylim(bottom = y1[inds].min(), top = y1[inds].max())
 
-                #######################
-                # Save Data
-                #######################
+            #######################
+            # Save Data
+            #######################
 
-                save_file.write(str(values['time']) + "\t" +  str(values['Temp']) + "\t" + str(values['Vx']) + "\t" + str(values['Vy'])+ '\t' + str(values['Vmag']) + '\t' + str(values['freq']) + '\t' + str(0)+"\n")
-                save_file.flush()
+            save_file.write(str(values['time']) + "\t" +  str(values['Temp']) + "\t" + str(values['Vx']) + "\t" + str(values['Vy'])+ '\t' + str(values['Vmag']) + '\t' + str(values['freq']) + '\t' + str(0)+"\n")
+            save_file.flush()
 
-                
-                plt.pause(time_con*3)#this cnverts time_con from ms to s
+            plt.pause(0.031)#this cnverts time_con from ms to s
             
         change_status(2,parameter_file)
         parameters = get_parameters(parameter_file)
+        srs.write('SCNRST')
+        time.sleep(.1)
     while parameters[6] == 2: #ramp mode
         #ax.legend().set_visible(False)
         ls.write('RAMP 1,1,'+ parameters[0])
@@ -431,6 +445,8 @@ while parameters[6] < 3:#main loop
         ls.write('PID 1,'+ parameters[4][0]+','+ parameters[4][1]+',' + parameters[4][2])#this sets the setpoint to the final temp
         time.sleep(0.05)
         ls.write('Range 1,1') #this turns the heater to low
+        parameters = get_parameters(parameter_file)
+        time.sleep(.05)
     
     # #######################
     # # Plotting
@@ -567,6 +583,7 @@ ls.write('SETP 1,'+ parameters[1]) #set temp back to start
 time.sleep(0.05)
 ls.write('Range 1,0') #this turns the heater off
 time.sleep(0.05)
+srs.write('SCNRST')
 ls.close()
 srs.close()
 
