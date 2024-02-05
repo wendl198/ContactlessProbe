@@ -19,9 +19,9 @@ def get_parameters(f):
         return (lines[0].split()[1],#RampRate
                 lines[1].split()[1],#StartTemp
                 lines[2].split()[1],#FinalTemp
-                lines[3].split()[1],#SweepTime
-                lines[4].split()[1],#FreqWidth
-                lines[5].split()[1],#SignalAmp
+                float(lines[3].split()[1]),#SweepTime
+                float(lines[4].split()[1]),#FreqWidth
+                float(lines[5].split()[1]),#SignalAmp
                 int(lines[6].split()[1]),#RampingStatus
                 [lines[7].split()[1],lines[7].split()[2],lines[7].split()[3]],#PID paratmeters
                 int(lines[8].split()[1]),#Autoscale boolean
@@ -376,7 +376,7 @@ while parameters[6] < 3:#main loop
         srs.write('SCNENBL 0')
         time.sleep(.1)
 
-        
+
     while parameters[6] == 2: #ramp mode
         try:
             if not(f_center-parameters[4]/2>=0 and f_center+parameters[4]/2<=4000):#check if the freq scan will be valid
