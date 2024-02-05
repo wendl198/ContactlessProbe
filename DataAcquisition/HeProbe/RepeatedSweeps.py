@@ -50,22 +50,25 @@ def change_status(new_status,f):
 def intiate_scan(instrument,start_freq,end_freq,signal_amp,scan_time,repeat,wait_time = 0.05):
     for com in set_command_list:
         instrument.write(com) #execute command
-        time.sleep(wait_time)#wait
+        # time.sleep(wait_time)#wait
     instrument.write('SLVL '+str(signal_amp)+' MV') #intialize voltage
-    time.sleep(wait_time)#wait
+    # time.sleep(wait_time)#wait
     instrument.write('FREQ '+ str(start_freq) + ' KHZ') #intialize frequency
-    time.sleep(wait_time)#wait
+    # time.sleep(wait_time)#wait
     instrument.write('SCNFREQ 0, '+str(start_freq)+' KHZ') #scan freq range
-    time.sleep(wait_time)#wait
+    # time.sleep(wait_time)#wait
     instrument.write('SCNFREQ 1, '+str(end_freq)+' KHZ')
-    time.sleep(wait_time)#wait
+    # time.sleep(wait_time)#wait
     instrument.write('SCNSEC ' +str(scan_time)) #total scan time in seconds
-    time.sleep(wait_time)#wait
+    # time.sleep(wait_time)#wait
     if repeat:
         instrument.write('SCNEND 2') #0 is an individual scan, 1 repeats
     else:
         instrument.write('SCNEND 0') #0 is an individual scan, 1 repeats
-
+        
+    instrument.write('SCNRST') #reset scan
+    instrument.write('SCNENBL ON') #intiate scan
+    
 def full_lorenzian_fit_with_skew(fs, f0,Q,Smax,A1,A2,A3):#fs is the data, f0 is the resonance freq
     return A1 + A2*fs + (Smax+A3*fs)/np.sqrt(1+4*(Q*(fs/f0-1))**2)#this is eq 10 from Measurement of resonant frequency and quality factor of microwave resonators: Comparison of methods Paul J. Petersan; Steven M. Anlage
 
@@ -125,7 +128,7 @@ i = sens_dict[sens_keys[np.logical_not(sens_keys<time_con)][0]]
 
 
 set_command_list = [
-    'SCNRST', #reset scan
+    'SCNENBL OFF' #ready scan
     'SCNPAR F', #set freq scan
     'SCNLOG 0',#set linear scan with 0 log scan with 1
     'SCNINRVL 2', #fastest freq scan time update resolution 0 =8ms 2=31ms
@@ -135,7 +138,6 @@ set_command_list = [
     'CDSP 1, 1', #second is vy
     'CDSP 2, 2', #third is R
     'CDSP 3, 15', #fourth is freq
-    'SCNENBL ON' #ready scan
 ]
 
 save_path = 'C:\\Users\\Contactless\\Desktop\\Contactless Probe\\RawData\\HeProbe\\'
