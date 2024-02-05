@@ -50,17 +50,17 @@ def change_status(new_status,f):
 def intiate_scan(instrument,start_freq,end_freq,signal_amp,scan_time,repeat,wait_time = 0.05):
     for com in set_command_list:
         instrument.write(com) #execute command
-        # time.sleep(wait_time)#wait
+        time.sleep(wait_time)#wait
     instrument.write('SLVL '+str(signal_amp)+' MV') #intialize voltage
-    # time.sleep(wait_time)#wait
+    time.sleep(wait_time)#wait
     instrument.write('FREQ '+ str(start_freq) + ' KHZ') #intialize frequency
-    # time.sleep(wait_time)#wait
+    time.sleep(wait_time)#wait
     instrument.write('SCNFREQ 0, '+str(start_freq)+' KHZ') #scan freq range
-    # time.sleep(wait_time)#wait
+    time.sleep(wait_time)#wait
     instrument.write('SCNFREQ 1, '+str(end_freq)+' KHZ')
-    # time.sleep(wait_time)#wait
+    time.sleep(wait_time)#wait
     instrument.write('SCNSEC ' +str(scan_time)) #total scan time in seconds
-    # time.sleep(wait_time)#wait
+    time.sleep(wait_time)#wait
     if repeat:
         instrument.write('SCNEND 2') #0 is an individual scan, 1 repeats
     else:
@@ -282,18 +282,15 @@ while parameters[6] < 3:#main loop
     while parameters[6] == 1: #ramp mode
         intiate_scan(srs,500,4000,2000,30,False)
         vs = srs.query('SNAPD?').split(',') #this is [Vx, Vy, Vmag, freq]
-        print(vs)
-        values['Vx'] = float(vs[0])
-        values['Vy'] = float(vs[1])
-        values['Vmag'] = float(vs[2])
+        
         values['freq'] = float(vs[3])
         p4.set_xdata([values['freq']])
         p5.set_xdata([values['freq']])
         p6.set_xdata([values['freq']])
-        p4.set_ydata([values['Vx']])
-        p5.set_ydata([values['Vy']])
-        p6.set_ydata([values['Vmag']])
-        
+        p4.set_ydata([float(vs[0])])
+        p5.set_ydata([float(vs[1])])
+        p6.set_ydata([float(vs[2])])
+        print(vs,p4.get_xdata(),p4.get_ydata(),p5.get_ydata(),p6.get_ydata())
         srs.write('SCNRUN') #start scan
         time.sleep(0.1)
         freqs = [values['freq']/1000]
@@ -364,7 +361,7 @@ while parameters[6] < 3:#main loop
                 ax.set_ylim(bottom = y1[inds].min(), top = y1[inds].max())
 
             #######################
-            # Save Data
+            # Save Datascan
             #######################
 
             save_file.write(str(values['time']) + "\t" +  str(values['Temp']) + "\t" + str(values['Vx']) + "\t" + str(values['Vy'])+ '\t' + str(values['Vmag']) + '\t' + str(values['freq']) + '\t' + str(0)+"\n")
@@ -372,7 +369,7 @@ while parameters[6] < 3:#main loop
 
             plt.pause(0.031)
 
-        f_center = p6.get_xdata()[np.argmin(p6.get_ydata())]
+        f_center = p6.get_xdata()[np.argmin(p6.get_ydata()[1:])]
         #start temp scan
         change_status(2,parameter_file)
         parameters = get_parameters(parameter_file)
@@ -422,25 +419,26 @@ while parameters[6] < 3:#main loop
             # Collect Data
             #######################
             #this is meant to be faster than other loops
-            vs = srs.query('SNAPD?').split(',') #this is [Vx, Vy, Vmag, freq]
-            R = float(vs[3])*1000 #this is the Voltage Magnitude in mV
-            j = sens_dict[sens_keys[np.logical_not(sens_keys<R)][0]]
-            k = input_range_dict[input_range_keys[np.logical_not(input_range_keys<R)][0]]
-            srs.write('IRNG '+str(k))
-            srs.write('SCAL '+str(j))
+            #vs = srs.query('SNAPD?').split(',') #this is [Vx, Vy, Vmag, freq]
+            #R = float(vs[3])*1000 #this is the Voltage Magnitude in mV
+            #j = sens_dict[sens_keys[np.logical_not(sens_keys<R)][0]]
+            #k = input_range_dict[input_range_keys[np.logical_not(input_range_keys<R)][0]]
+            #srs.write('IRNG '+str(k))
+            #srs.write('SCAL '+str(j))
             
 
             #######################
             # Save Data
             #######################
 
-            save_file.write(str((time.perf_counter()-intitial_time)/60) + "\t" +  str(float(ls.query('KRDG? a'))) + "\t" + str(float(vs[0])) + "\t" + str(float(vs[1]))+ '\t' + str(float(vs[2])) + '\t' + str(float(vs[3])) + '\t' + str(sweep_num)+"\n")
-            save_file.flush()
-
-            plt.pause(3*time_con)
+            #save_file.write(str((time.perf_counter()-intitial_time)/60) + "\t" +  str(float(ls.query('KRDG? a'))) + "\t" + str(float(vs[0])) + "\t" + str(float(vs[1]))+ '\t' + str(float(vs[2])) + '\t' + str(float(vs[3])) + '\t' + str(sweep_num)+"\n")
+            #save_file.flush()
+            pass
+            #plt.pause(3*time_con)
         srs.write('CAPTURESTOP')
-        byte_num = srs.query('CAPTUREPROG?').strip()
-        raw_data = srs.query('CAPTUREGET? 0 ' + byte_num)
+        byte_num = srs.query('CAPTUREPROG?').strip() #number of btyes recorded in previous scans
+        print(byte_num)
+        raw_data = srs.query('CAPTUREGET? 0,' + byte_num)
         srs.write('SCNENBL 0')
         parameters = get_parameters(parameter_file)
         print(raw_data)
