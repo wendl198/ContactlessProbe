@@ -4,7 +4,11 @@ from datetime import datetime
 import os
 import pyvisa
 import time
+from collections import deque
+from scipy import optimize
+import warnings
 
+warnings.filterwarnings("ignore")
 
 def get_parameters(f):
     try:
@@ -61,7 +65,10 @@ def intiate_scan(instrument,start_freq,end_freq,signal_amp,scan_time,repeat,wait
         instrument.write('SCNEND 2') #0 is an individual scan, 1 repeats
     else:
         instrument.write('SCNEND 0') #0 is an individual scan, 1 repeats
-    
+
+def full_lorenzian_fit_with_skew(fs, f0,Q,Smax,A1,A2,A3):#fs is the data, f0 is the resonance freq
+    return A1 + A2*fs + (Smax+A3*fs)/np.sqrt(1+4*(Q*(fs/f0-1))**2)#this is eq 10 from Measurement of resonant frequency and quality factor of microwave resonators: Comparison of methods Paul J. Petersan; Steven M. Anlage
+
 
 sens_dict = {1000:0,
             500:1,
@@ -200,7 +207,6 @@ time.sleep(.05)
 #######################
 
 while parameters[6] < 3:#main loop
-    print('mainloop')
     while parameters[6] == 0: #idlely collecting data
         ########################
         # Update Parameters
@@ -336,15 +342,15 @@ while parameters[6] < 3:#main loop
                 ax.set_xlim(left = 0, right = values['time'])
                 ax.set_ylim(bottom = y1.min(), top = y1.max())
             else:
-                if len(parameters[6]) == 2:
-                    t0 = float(parameters[6][0])
+                if len(parameters[9]) == 2:
+                    t0 = float(parameters[9][0])
                     if t0> times[-1]:
                         t0 = times[-1]-.1
-                    t1 = float(parameters[6][1])
+                    t1 = float(parameters[9][1])
                     inds = np.logical_and(times >= t0, times <= t1)
                     ax.set_xlim(left = t0,right = t1)
-                elif len(parameters[6]) == 1:
-                    t0 = float(parameters[6][0])
+                elif len(parameters[9]) == 1:
+                    t0 = float(parameters[9][0])
                     if t0> times[-1]:
                         t0 = times[-1]-.1
                     inds = np.logical_not(times<t0)
@@ -364,147 +370,161 @@ while parameters[6] < 3:#main loop
             plt.pause(0.031)
 
         f_center = p6.get_xdata()[np.argmin(p6.get_ydata())]
-        print(f_center)
         #start temp scan
         change_status(2,parameter_file)
         parameters = get_parameters(parameter_file)
         srs.write('SCNENBL 0')
         time.sleep(.1)
+
+        
     while parameters[6] == 2: #ramp mode
-        #ax.legend().set_visible(False)
+        try:
+            if not(f_center-parameters[4]/2>=0 and f_center+parameters[4]/2<=4000):#check if the freq scan will be valid
+                change_status(1,parameter_file)
+                parameters = get_parameters(parameter_file)
+                time.sleep(.1)
+        except:
+            change_status(1,parameter_file)
+            parameters = get_parameters(parameter_file)
+            time.sleep(.1)
+
         ls.write('RAMP 1,1,'+ parameters[0])
         time.sleep(0.05)
         ls.write('SETP 1,'+ parameters[2])#this sets the setpoint to the final temp
         time.sleep(0.05)
-        ls.write('PID 1,'+ parameters[4][0]+','+ parameters[4][1]+',' + parameters[4][2])#this sets the setpoint to the final temp
+        ls.write('PID 1,'+ parameters[7][0]+','+ parameters[7][1]+',' + parameters[7][2])#this sets the setpoint to the final temp
         time.sleep(0.05)
         ls.write('Range 1,1') #this turns the heater to low
         parameters = get_parameters(parameter_file)
-        time.sleep(.05)
-    
-    # #######################
-    # # Plotting
-    # #######################
 
-    # # update data
-    # times = np.append(p1.get_xdata(),values['time'])
-    # y1 = np.append(p1.get_ydata(),values['Temp'])
-    # y3 = np.append(p3.get_ydata(),1000*values['Vx']) # plot the voltages in mV
-    # y4 = np.append(p4.get_ydata(),1000*values['Vy'])
-    # y2 = np.angle(y3-float(parameters[7][0])+(y4-float(parameters[7][1]))*1j)
+        intiate_scan(srs,f_center-parameters[4]/2,f_center+parameters[4]/2,parameters[5],parameters[3],False)
+        vs = srs.query('SNAPD?').split(',') #this is [Vx, Vy, Vmag, freq]
+        values['Vx'] = float(vs[0])
+        values['Vy'] = float(vs[1])
+        values['Vmag'] = float(vs[2])
+        values['freq'] = float(vs[3])
+        p4.set_xdata([values['freq']])
+        p5.set_xdata([values['freq']])
+        p6.set_xdata([values['freq']])
+        p4.set_ydata([values['Vx']])
+        p5.set_ydata([values['Vy']])
+        p6.set_ydata([values['Vmag']])
 
-    # p1.set_xdata(times)
-    # p3.set_xdata(times)
-    # p4.set_xdata(times)
-    # p1.set_ydata(y1)
-    # p3.set_ydata(y3)
-    # p4.set_ydata(y4)
+        sweep_num += 1 #this will help identify sweeps from each other
+        srs.write('SCNRUN') #start scan
+        while srs.query('SCNSTATE?').strip() == '2':#scanning
+            #######################
+            # Collect Data
+            #######################
+            #this is meant to be faster than other loops
+            vs = srs.query('SNAPD?').split(',') #this is [Vx, Vy, Vmag, freq]
+            R = float(vs[3])*1000 #this is the Voltage Magnitude in mV
+            j = sens_dict[sens_keys[np.logical_not(sens_keys<R)][0]]
+            k = input_range_dict[input_range_keys[np.logical_not(input_range_keys<R)][0]]
+            srs.write('IRNG '+str(k))
+            srs.write('SCAL '+str(j))
+            
 
-    # #update limits 
-    # # Note p2 is special because temperature on x axis
+            #######################
+            # Save Data
+            #######################
 
-    # if parameters[5]:
-    #     p2.set_xdata(y1)
-    #     p2.set_ydata(y2)
-    #     ax.set_xlim(left = 0, right = values['time'])
-    #     bx.set_xlim(left = y1.min(), right = y1.max())
-    #     cx.set_xlim(left = 0, right = values['time'])
-    #     dx.set_xlim(left = 0, right = values['time'])
-    #     ax.set_ylim(bottom = y1.min(), top = y1.max())
-    #     bx.set_ylim(bottom = y2.min(), top = y2.max())
-    #     cx.set_ylim(bottom = y3.min(), top = y3.max())
-    #     dx.set_ylim(bottom = y4.min(), top = y4.max())
-    # else:
-    #     if len(parameters[6]) == 2:
-    #         t0 = float(parameters[6][0])
-    #         if t0> times[-1]:
-    #             t0 = times[-1]-.1
-    #         t1 = float(parameters[6][1])
-    #         inds = np.logical_and(times >= t0, times <= t1)
-    #         p2.set_xdata(y1[inds])
-    #         p2.set_ydata(y2[inds])
-    #         ax.set_xlim(left = t0,right = t1)
-    #         bx.set_xlim(left = y1[inds].min(),right = y1[inds].max())
-    #         cx.set_xlim(left = t0,right = t1)
-    #         dx.set_xlim(left = t0,right = t1)
-    #     elif len(parameters[6]) == 1:
-    #         t0 = float(parameters[6][0])
-    #         if t0> times[-1]:
-    #             t0 = times[-1]-.1
-    #         inds = np.logical_not(times<t0)
-    #         p2.set_xdata(y1[inds])
-    #         p2.set_ydata(y2[inds])
-    #         ax.set_xlim(left = t0,right = values['time'])
-    #         bx.set_xlim(left = y1[inds].min(),right = y1[inds].max())
-    #         cx.set_xlim(left = t0,right = values['time'])
-    #         dx.set_xlim(left = t0,right = values['time'])
-    #     else:
-    #         inds = np.logical_not(times<0)
-    #         p2.set_xdata(y1)
-    #         p2.set_ydata(y2)
-    #         ax.set_xlim(left = 0, right = values['time'])
-    #         bx.set_xlim(left = y1.min(), right = y1.max())
-    #         cx.set_xlim(left = 0, right = values['time'])
-    #         dx.set_xlim(left = 0, right = values['time'])
-    #     ax.set_ylim(bottom = y1[inds].min(), top = y1[inds].max())
-    #     bx.set_ylim(bottom = y2[inds].min(), top = y2[inds].max())
-    #     cx.set_ylim(bottom = y3[inds].min(), top = y3[inds].max())
-    #     dx.set_ylim(bottom = y4[inds].min(), top = y4[inds].max())
+            save_file.write(str((time.perf_counter()-intitial_time)/60) + "\t" +  str(float(ls.query('KRDG? a'))) + "\t" + str(float(vs[0])) + "\t" + str(float(vs[1]))+ '\t' + str(float(vs[2])) + '\t' + str(float(vs[3])) + '\t' + str(sweep_num)+"\n")
+            save_file.flush()
 
-    
+            plt.pause(3*time_con)
 
-    # #######################
-    # # Save Data
-    # #######################
+        srs.write('SCNENBL 0')
+        parameters = get_parameters(parameter_file)
+        #this part can afford to be slower because it is called 100x less
 
-    # save_file.write(str(values['time']) + "\t" +  str(values['Temp']) + "\t" + str(values['Vx']) + "\t" + str(values['Vy'])+"\n")
-    # save_file.flush()#this will save the data without closing the file
+        #######################
+        # Retrieve Data
+        #######################
+        new_data = [[],[],[],[],[],[]]#[time,temp,vx,vy,vmag,freq]
+        with open(save_path, 'r') as file:
+            last_lines = deque(file, maxlen=parameters[3]//(3*time_con))
+        for line in last_lines:
+            data = line.split()
+            if data[-1] == sweep_num:
+                for i, dat in enumerate(data[:-1]):
+                    new_data[i].append(float(dat))
+        new_data= np.array(new_data)
 
 
-    # plt.pause(pause_time) #this displays the graph
+        #######################
+        # fitting
+        #######################
 
-    # #check if final temp is reached
-    # # if float(parameters[2]) <= values['Temp']:
-    # #     change_status(0,parameter_file) #stop ramping, but still collect data
+        guesses1 = [f_center*1000,30,-.3,.26,0,0]
+        pbounds1 = np.array([[min(new_data[5]),1,-1,-1,-1,-1],[max(new_data[5]),1e4,1,1,1,1]]) # [[Lower bounds],[upper bounds]]
+        bestfit = optimize.curve_fit(full_lorenzian_fit_with_skew,new_data[5],new_data[4]*1000,guesses1, bounds=pbounds1)
+        bestpars = bestfit[0]
 
+        #######################
+        # Plotting
+        #######################
 
+        #append time data
+        times = np.append(p1.get_xdata(),new_data[0])
+        y1 = np.append(p1.get_ydata(),new_data[1])
+        p1.set_xdata(times)
+        p1.set_ydata(y1)
 
-# for time_con in time_cons:
-#     i = sens_dict[sens_keys[np.logical_not(sens_keys<R)][0]]
-#     srs.write('OFLT '+ str(i)) #time cosntant
-#     while srs.query('SCNSTATE?').strip()=='2':#scan is running
-#         plt.pause(time_con*5)#this cnverts time_con from ms to s
-#         values['Vx'],values['Vy'],values['R'],values['Freq'] = srs.query('SNAPD?').split(',') 
-#         R = float(values['R'])*1000 #this is the Voltage Magnitude in mV
-#         j = sens_dict[sens_keys[np.logical_not(sens_keys<R)][0]]
-#         k = input_range_dict[input_range_keys[np.logical_not(input_range_keys<R)][0]]
-#         srs.write('IRNG '+str(k))
-#         srs.write('SCAL '+str(j))
-#         values['time'] = (time.perf_counter()-intitial_time)/60 #The time is now in minutes
-#         save_file.write(str(values['time'])  + "\t" + values['Vx'].strip() + "\t" + values['Vy'].strip()+ "\t" +  values['R'].strip() + "\t" + values['Freq'].strip()+ "\t"+str(time_con)+"\n")
-#         save_file.flush()
-        
-#         ax.set_title('Current Frequency '+str(round(f:= (float(values['Freq'])/1000),1))+' kHz')
+        #show voltage for previous scan
+        p4.set_xdata(new_data[5]/1000)
+        p5.set_xdata(new_data[5]/1000)
+        p6.set_xdata(new_data[5]/1000)
+        p4.set_ydata(1000*new_data[2])
+        p5.set_ydata(1000*new_data[3])
+        p6.set_ydata(1000*new_data[4])
 
-        
-#         freqs = np.append(p1.get_xdata(),f)
-#         y1 = np.append(p1.get_ydata(),1000*float(values['Vx'])) # plot the voltages in mV
-#         y2 = np.append(p2.get_ydata(),1000*float(values['Vy']))
-#         y3 = np.append(p3.get_ydata(),R)
+        #Q factor and res freq data
+        if sweep_num == 1:
+            p2.set_xdata([(T_avg := np.average(new_data[1]))])
+            p3.set_xdata([T_avg])
+            p2.set_ydata([bestpars[0]])
+            p3.set_ydata([bestpars[1]])
+        else:
+            p2.set_xdata(np.append(p2.get_xdata(),(T_avg := np.average(new_data[1]))))
+            p3.set_xdata(np.append(p3.get_xdata(),T_avg))
+            p2.set_ydata(np.append(p2.get_ydata(),bestpars[0]))
+            p3.set_ydata(np.append(p3.get_ydata(),bestpars[1]))
 
-#         p1.set_xdata(freqs)
-#         p2.set_xdata(freqs)
-#         p3.set_xdata(freqs)
-#         p1.set_ydata(y1)
-#         p2.set_ydata(y2)
-#         p3.set_ydata(y3)
+        #update limits
+        bx.set_xlim(left = y1.min(), right = y1.max())
+        cx.set_xlim(left = y1.min(), right = y1.max())
+        bx.set_ylim(bottom = np.min(p2.get_ydata()), top = np.max(p2.get_ydata()))
+        cx.set_ylim(bottom = np.min(p3.get_ydata()), top = np.max(p3.get_ydata()))
+        dx.set_xlim(left = new_data[5][0]/1000, right = new_data[5][-1]/1000)
+        ex.set_xlim(left = new_data[5][0]/1000, right = new_data[5][-1]/1000)
+        fx.set_xlim(left = new_data[5][0]/1000, right = new_data[5][-1]/1000)
+        dx.set_ylim(bottom = np.min(new_data[2]), top = np.max(new_data[2]))
+        ex.set_ylim(bottom = np.min(new_data[3]), top = np.max(new_data[3]))
+        fx.set_ylim(bottom = np.min(new_data[4]), top = np.max(new_data[4]))
+        if parameters[8]:
+            ax.set_xlim(left = 0, right = times[-1])
+            ax.set_ylim(bottom = y1.min(), top = y1.max())
+        else:
+            if len(parameters[9]) == 2:
+                t0 = float(parameters[9][0])
+                if t0> times[-1]:
+                    t0 = times[-1]-.5
+                t1 = float(parameters[9][1])
+                inds = np.logical_and(times >= t0, times <= t1)
+                ax.set_xlim(left = t0,right = t1)
+            elif len(parameters[9]) == 1:
+                t0 = float(parameters[9][0])
+                if t0> times[-1]:
+                    t0 = times[-1]-.5
+                inds = np.logical_not(times<t0)
+                ax.set_xlim(left = t0,right = times[-1])
+            else:
+                inds = np.logical_not(times<0)
+                ax.set_xlim(left = 0, right = times[-1])
+            ax.set_ylim(bottom = y1[inds].min(), top = y1[inds].max())
 
-#         ax.set_xlim(left = freq_range[0], right = f)
-#         bx.set_xlim(left = freq_range[0], right = f)
-#         cx.set_xlim(left = freq_range[0], right = f)
-#         ax.set_ylim(bottom = y1.min(), top = y1.max())
-#         bx.set_ylim(bottom = y2.min(), top = y2.max())
-#         cx.set_ylim(bottom = y3.min(), top = y3.max())
+        plt.pause(0.031)#show plot
 
         
 
