@@ -9,6 +9,7 @@ import math
 from struct import unpack_from
 import sys
 import vxi11
+from scipy import optimize
 
 
 warnings.filterwarnings("ignore")
@@ -82,7 +83,7 @@ def show_status(left_t='', right_t=''):
     print(' %-30s %48s\r'%(left_t[:30], right_t[:48]), end=' ')
 
 
-def retrieve_data(vx_handle, i_bytes_captured, i_wait_count, s_channels = 'XYRF'):
+def retrieve_data(vx_handle, i_bytes_remaining):
     """ Use the binary transfer command over vx interface to retrieve the capture buffer.
         maximum block count for CAPTUREGET? is 64 so loop over blocks as needed to
         get all the desired data.
@@ -90,7 +91,7 @@ def retrieve_data(vx_handle, i_bytes_captured, i_wait_count, s_channels = 'XYRF'
             Instead, I use the length of the binary buffer returned to calculate
             the number of floats to convert.
     """
-    i_bytes_remaining = min(i_bytes_captured, i_wait_count * 4 * 4)
+    # i_bytes_remaining = min(i_bytes_captured, i_wait_count * 4 * 4)
     i_block_offset = 0
     f_data = []
     i_retries = 0
@@ -457,6 +458,7 @@ while parameters[6] < 3:#main loop
                 change_status(1,parameter_file)
                 parameters = get_parameters(parameter_file)
                 time.sleep(.1)
+                raise Exception('f_center is not in range [0,4MHz]\nAttempting to refind f_center')
                 
 
             ls.write('RAMP 1,1,'+ parameters[0])
@@ -467,6 +469,9 @@ while parameters[6] < 3:#main loop
             time.sleep(0.05)
             ls.write('Range 1,1') #this turns the heater to low
             parameters = get_parameters(parameter_file)
+            
+            ramptemps = []
+            ramptimes = []
 
             intiate_scan(srs,f_center-parameters[4]/2,f_center+parameters[4]/2,parameters[5],parameters[3],False)
 
@@ -478,70 +483,77 @@ while parameters[6] < 3:#main loop
             sweep_num += 1 #this will help identify sweeps from each other
             i_wait_count = 256
             #f_rate_max = dut_config(srs, i_wait_count)
-            t_timeout = 3
+            # t_timeout = 3
 
 
             """ tell the SR865 to take data and wait until it completes
             """
             t_start = time.perf_counter()
             srs.write('CAPTURESTART ONE, IMM')
-            i_bytes_captured = 0
-            i_last_cap_byte = 0
-            t_last = t_start
-            while i_bytes_captured < (i_wait_count * 4 * 4):
-                i_bytes_captured = int(srs.ask('CAPTUREBYTES?'))
-                show_status('dut has captured %4d of %4d samples'%
-                                (i_bytes_captured / (4 * 4), i_wait_count))
-                if (i_bytes_captured - i_last_cap_byte) == 0:
-                    if (time.perf_counter() - t_last) > t_timeout:
-                        print('\n\n**** CAPTURE TIMEOUT! ****')
-                        if not i_bytes_captured:
-                            print('**** NO DATA CAPTURED - missing trigger? ****\n')
-                            sys.exit(-1)
-                        break
-                else:
-                    t_last = time.perf_counter()
-                i_last_cap_byte = i_bytes_captured
+            # i_bytes_captured = 0
+            # i_last_cap_byte = 0
+            # t_last = t_start
+            # while i_bytes_captured < (i_wait_count * 4 * 4):
+            #     i_bytes_captured = int(srs.ask('CAPTUREBYTES?'))
+            #     show_status('dut has captured %4d of %4d samples'%
+            #                     (i_bytes_captured / (4 * 4), i_wait_count))
+            #     if (i_bytes_captured - i_last_cap_byte) == 0:
+            #         if (time.perf_counter() - t_last) > t_timeout:
+            #             print('\n\n**** CAPTURE TIMEOUT! ****')
+            #             if not i_bytes_captured:
+            #                 print('**** NO DATA CAPTURED - missing trigger? ****\n')
+            #                 sys.exit(-1)
+            #             break
+            #     else:
+            #         t_last = time.perf_counter()
+            #     i_last_cap_byte = i_bytes_captured
+            # t_end = time.perf_counter()
+            
+            # print('capture took %.3f seconds. Retrieving data...'%(t_end-t_start))
+
+            while srs.ask('SCNSTATE?').strip() == '2':#scanning
+                #######################
+                # Collect Data
+                #######################
+                #this is meant to be faster than other loops
+                #R = float(srs.ask('SNAPD?').split(',')[3])*1000 #this is the Voltage Magnitude in mV
+                vs = srs.ask('SNAPD?').split(',') #this is [Vx, Vy, Vmag, freq]
+                print(vs)
+                R = float(vs[3])*1000 #this is the Voltage Magnitude in mV
+                j = sens_dict[sens_keys[np.logical_not(sens_keys<R)][0]]
+                k = input_range_dict[input_range_keys[np.logical_not(input_range_keys<R)][0]]
+                srs.write('IRNG '+str(k))
+                srs.write('SCAL '+str(j))
+                
+                ramptimes.append((time.perf_counter()-intitial_time)/60) #The time is now in minutes
+                ramptemps.append(float(ls.query('KRDG? a'))) #temp in K
+                #######################
+                # Save Data
+                #######################
+                #save_file.write(str((time.perf_counter()-intitial_time)/60) + "\t" +  str(float(ls.query('KRDG? a'))) + "\t" + str(float(vs[0])) + "\t" + str(float(vs[1]))+ '\t' + str(float(vs[2])) + '\t' + str(float(vs[3])) + '\t' + str(sweep_num)+"\n")
+                #save_file.flush()
+
+                #plt.pause(3*time_con)
+                pass
+
             t_end = time.perf_counter()
             srs.write('CAPTURESTOP')
-            print('capture took %.3f seconds. Retrieving data...'%(t_end-t_start))
-            i_bytes_captured = int(srs.ask('CAPTUREPROG?')))*1024
-            f_data = retrieve_data(srs, i_bytes_captured, i_wait_count)
-            # srs.write('SCNRUN') #start scan
-            # srs.write('CAPTURESTART ONE, IMM')
-            # while srs.ask('SCNSTATE?').strip() == '2':#scanning
-            #     #######################
-            #     # Collect Data
-            #    #######################
-            #     #this is meant to be faster than other loops
-            #     #vs = srs.ask('SNAPD?').split(',') #this is [Vx, Vy, Vmag, freq]
-            #     #R = float(vs[3])*1000 #this is the Voltage Magnitude in mV
-            #     #j = sens_dict[sens_keys[np.logical_not(sens_keys<R)][0]]
-            #     #k = input_range_dict[input_range_keys[np.logical_not(input_range_keys<R)][0]]
-            #     #srs.write('IRNG '+str(k))
-            #     #srs.write('SCAL '+str(j))
-                
-
-            #     #######################
-            #     # Save Data
-            #     #######################
-            #     #save_file.write(str((time.perf_counter()-intitial_time)/60) + "\t" +  str(float(ls.query('KRDG? a'))) + "\t" + str(float(vs[0])) + "\t" + str(float(vs[1]))+ '\t' + str(float(vs[2])) + '\t' + str(float(vs[3])) + '\t' + str(sweep_num)+"\n")
-            #     #save_file.flush()
-
-            #     #plt.pause(3*time_con)
-            #     pass
-            # srs.write('CAPTURESTOP')
-            # byte_num = srs.ask('CAPTUREPROG?').strip()
-            # raw_data = srs.ask_binary_values('CAPTUREGET? 0 ' + byte_num)
-            # raw_data = srs.query('CAPTUREGET? 0 ' + byte_num)
+            i_bytes_captured = int(srs.ask('CAPTUREPROG?'))*1024
+            f_data = np.array(retrieve_data(srs, i_bytes_captured))
             srs.write('SCNENBL 0')
             parameters = get_parameters(parameter_file)
             print(f_data)
+            outputtimes = np.linspace(t_start,t_end,len(f_data//4))
+            outputtemps = np.interp(outputtimes,ramptimes,ramptemps)#this is a little sketchy, but not bad
+
             #this part can afford to be slower because it is called 100x less
 
             #######################
             # Retrieve Data
             #######################
+            reshaped_array = f_data.reshape(-1, 4)
+
+            vxs,vys,vmags,freqs = (reshaped_array[:, i] for i in range(4))
             # new_data = [[],[],[],[],[],[]]#[time,temp,vx,vy,vmag,freq]
             # with open(save_path, 'r') as file:
             #     last_lines = deque(file, maxlen=parameters[3]//(3*time_con))
@@ -552,80 +564,87 @@ while parameters[6] < 3:#main loop
             #             new_data[i].append(float(dat))
             # new_data= np.array(new_data)
 
+            #######################
+            # Save Data
+            #######################
+            for i, freq in enumerate(freqs):
+                save_file.write(str(outputtimes[i]) + "\t" +  str(outputtemps[i]) + "\t" + str(vxs[i]) + "\t" + str(vys[i])+ '\t' + str(vmags[i]) + '\t' + str(freq) + '\t' + str(sweep_num)+"\n")
+                save_file.flush()
+
 
             #######################
             # fitting
             #######################
 
-            # guesses1 = [f_center*1000,30,-.3,.26,0,0]
-            # pbounds1 = np.array([[min(new_data[5]),1,-1,-1,-1,-1],[max(new_data[5]),1e4,1,1,1,1]]) # [[Lower bounds],[upper bounds]]
-            # bestfit = optimize.curve_fit(full_lorenzian_fit_with_skew,new_data[5],new_data[4]*1000,guesses1, bounds=pbounds1)
-            # bestpars = bestfit[0]
+            guesses1 = [f_center*1000,30,-.3,.26,0,0]
+            pbounds1 = np.array([[freqs[0],1,-1,-1,-1,-1],[max(freqs[-1]),1e4,1,1,1,1]]) # [[Lower bounds],[upper bounds]]
+            bestfit = optimize.curve_fit(full_lorenzian_fit_with_skew,freqs,vmags,guesses1, bounds=pbounds1)
+            bestpars = bestfit[0]
 
             #######################
             # Plotting
             #######################
 
             # #append time data
-            # times = np.append(p1.get_xdata(),new_data[0])
-            # y1 = np.append(p1.get_ydata(),new_data[1])
-            # p1.set_xdata(times)
-            # p1.set_ydata(y1)
+            times = np.append(p1.get_xdata(),ramptimes)
+            y1 = np.append(p1.get_ydata(),ramptemps)
+            p1.set_xdata(times)
+            p1.set_ydata(y1)
 
-            # #show voltage for previous scan
-            # p4.set_xdata(new_data[5]/1000)
-            # p5.set_xdata(new_data[5]/1000)
-            # p6.set_xdata(new_data[5]/1000)
-            # p4.set_ydata(1000*new_data[2])
-            # p5.set_ydata(1000*new_data[3])
-            # p6.set_ydata(1000*new_data[4])
+            #show voltage for previous scan
+            p4.set_xdata(freqs/1000)
+            p5.set_xdata(freqs/1000)
+            p6.set_xdata(freqs/1000)
+            p4.set_ydata(1000*vxs)
+            p5.set_ydata(1000*vys)
+            p6.set_ydata(1000*vmags)
 
-            # #Q factor and res freq data
-            # if sweep_num == 1:
-            #     p2.set_xdata([(T_avg := np.average(new_data[1]))])
-            #     p3.set_xdata([T_avg])
-            #     p2.set_ydata([bestpars[0]])
-            #     p3.set_ydata([bestpars[1]])
-            # else:
-            #     p2.set_xdata(np.append(p2.get_xdata(),(T_avg := np.average(new_data[1]))))
-            #     p3.set_xdata(np.append(p3.get_xdata(),T_avg))
-            #     p2.set_ydata(np.append(p2.get_ydata(),bestpars[0]))
-            #     p3.set_ydata(np.append(p3.get_ydata(),bestpars[1]))
+            #Q factor and res freq data
+            if sweep_num == 1:
+                p2.set_xdata([(T_avg := np.average(ramptemps))])
+                p3.set_xdata([T_avg])
+                p2.set_ydata([bestpars[0]])
+                p3.set_ydata([bestpars[1]])
+            else:
+                p2.set_xdata(np.append(p2.get_xdata(),(T_avg := np.average(ramptemps))))
+                p3.set_xdata(np.append(p3.get_xdata(),T_avg))
+                p2.set_ydata(np.append(p2.get_ydata(),bestpars[0]))
+                p3.set_ydata(np.append(p3.get_ydata(),bestpars[1]))
 
-            # #update limits
-            # bx.set_xlim(left = y1.min(), right = y1.max())
-            # cx.set_xlim(left = y1.min(), right = y1.max())
-            # bx.set_ylim(bottom = np.min(p2.get_ydata()), top = np.max(p2.get_ydata()))
-            # cx.set_ylim(bottom = np.min(p3.get_ydata()), top = np.max(p3.get_ydata()))
-            # dx.set_xlim(left = new_data[5][0]/1000, right = new_data[5][-1]/1000)
-            # ex.set_xlim(left = new_data[5][0]/1000, right = new_data[5][-1]/1000)
-            # fx.set_xlim(left = new_data[5][0]/1000, right = new_data[5][-1]/1000)
-            # dx.set_ylim(bottom = np.min(new_data[2]), top = np.max(new_data[2]))
-            # ex.set_ylim(bottom = np.min(new_data[3]), top = np.max(new_data[3]))
-            # fx.set_ylim(bottom = np.min(new_data[4]), top = np.max(new_data[4]))
-            # if parameters[8]:
-            #     ax.set_xlim(left = 0, right = times[-1])
-            #     ax.set_ylim(bottom = y1.min(), top = y1.max())
-            # else:
-            #     if len(parameters[9]) == 2:
-            #         t0 = float(parameters[9][0])
-            #         if t0> times[-1]:
-            #             t0 = times[-1]-.5
-            #         t1 = float(parameters[9][1])
-            #         inds = np.logical_and(times >= t0, times <= t1)
-            #         ax.set_xlim(left = t0,right = t1)
-            #     elif len(parameters[9]) == 1:
-            #         t0 = float(parameters[9][0])
-            #         if t0> times[-1]:
-            #             t0 = times[-1]-.5
-            #         inds = np.logical_not(times<t0)
-            #         ax.set_xlim(left = t0,right = times[-1])
-            #     else:
-            #         inds = np.logical_not(times<0)
-            #         ax.set_xlim(left = 0, right = times[-1])
-            #     ax.set_ylim(bottom = y1[inds].min(), top = y1[inds].max())
+            #update limits
+            bx.set_xlim(left = y1.min(), right = y1.max())
+            cx.set_xlim(left = y1.min(), right = y1.max())
+            bx.set_ylim(bottom = np.min(p2.get_ydata()), top = np.max(p2.get_ydata()))
+            cx.set_ylim(bottom = np.min(p3.get_ydata()), top = np.max(p3.get_ydata()))
+            dx.set_xlim(left = freqs[0]/1000, right = freqs[-1]/1000)
+            ex.set_xlim(left = freqs[0]/1000, right = freqs[-1]/1000)
+            fx.set_xlim(left = freqs[0]/1000, right = freqs[-1]/1000)
+            dx.set_ylim(bottom = np.min(vxs), top = np.max(vxs))
+            ex.set_ylim(bottom = np.min(vys), top = np.max(vys))
+            fx.set_ylim(bottom = np.min(vmags), top = np.max(vmags))
+            if parameters[8]:
+                ax.set_xlim(left = 0, right = times[-1])
+                ax.set_ylim(bottom = y1.min(), top = y1.max())
+            else:
+                if len(parameters[9]) == 2:
+                    t0 = float(parameters[9][0])
+                    if t0> times[-1]:
+                        t0 = times[-1]-.5
+                    t1 = float(parameters[9][1])
+                    inds = np.logical_and(times >= t0, times <= t1)
+                    ax.set_xlim(left = t0,right = t1)
+                elif len(parameters[9]) == 1:
+                    t0 = float(parameters[9][0])
+                    if t0> times[-1]:
+                        t0 = times[-1]-.5
+                    inds = np.logical_not(times<t0)
+                    ax.set_xlim(left = t0,right = times[-1])
+                else:
+                    inds = np.logical_not(times<0)
+                    ax.set_xlim(left = 0, right = times[-1])
+                ax.set_ylim(bottom = y1[inds].min(), top = y1[inds].max())
 
-            # plt.pause(0.031)#show plot
+            plt.pause(0.031)#show plot
 
         except Exception as error:
             parameters = get_parameters(parameter_file)
