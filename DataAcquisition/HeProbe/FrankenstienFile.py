@@ -79,6 +79,82 @@ def intiate_scan(instrument,start_freq,end_freq,signal_amp,scan_time,repeat,wait
 def full_lorenzian_fit_with_skew(fs, f0,Q,Smax,A1,A2,A3):#fs is the data, f0 is the resonance freq
     return A1 + A2*fs + (Smax+A3*fs)/np.sqrt(1+4*(Q*(fs/f0-1))**2)#this is eq 10 from Measurement of resonant frequency and quality factor of microwave resonators: Comparison of methods Paul J. Petersan; Steven M. Anlage
 
+def show_status(left_t='', right_t=''):
+    """ Simple text status line that overwrites itself to prevent scrolling.
+    """
+    print(' %-30s %48s\r'%(left_t[:30], right_t[:48]), end=' ')
+
+def capture_data(vx_handle, i_wait_count, b_show_status = True, t_timeout = 5, s_mode = 'IMM', s_channels = 'XYRT'): #pylint: disable=R0913
+    """ tell the SR865 to take data and wait until it completes
+    """
+    t_start = time.perf_counter()
+    vx_handle.write('CAPTURESTART ONE, %s'%s_mode)
+    i_bytes_captured = 0
+    i_last_cap_byte = 0
+    t_last = t_start
+    while i_bytes_captured < (i_wait_count * 4 * len(s_channels)):
+        i_bytes_captured = int(vx_handle.ask('CAPTUREBYTES?'))
+        if b_show_status:
+            show_status('dut has captured %4d of %4d samples'%
+                        (i_bytes_captured / (4 * len(s_channels)), i_wait_count))
+        if (i_bytes_captured - i_last_cap_byte) == 0:
+            if (time.perf_counter() - t_last) > t_timeout:
+                print('\n\n**** CAPTURE TIMEOUT! ****')
+                if not i_bytes_captured:
+                    print('**** NO DATA CAPTURED - missing trigger? ****\n')
+                    sys.exit(-1)
+                break
+        else:
+            t_last = time.perf_counter()
+        i_last_cap_byte = i_bytes_captured
+    t_end = time.perf_counter()
+    vx_handle.write('CAPTURESTOP')
+    print('capture took %.3f seconds. Retrieving data...'%(t_end-t_start))
+    return i_bytes_captured
+
+
+def retrieve_data(vx_handle, i_bytes_captured, i_wait_count, s_channels = 'XYRT'):
+    """ Use the binary transfer command over vx interface to retrieve the capture buffer.
+        maximum block count for CAPTUREGET? is 64 so loop over blocks as needed to
+        get all the desired data.
+        Note: I don't actually look at the data byte count in the response header.
+            Instead, I use the length of the binary buffer returned to calculate
+            the number of floats to convert.
+    """
+    i_bytes_remaining = min(i_bytes_captured, i_wait_count * 4 * len(s_channels))
+    i_block_offset = 0
+    f_data = []
+    i_retries = 0
+    while i_bytes_remaining > 0:
+        i_block_cnt = min(64, int(math.ceil(i_bytes_remaining / 1024.0)))
+        vx_handle.write('CAPTUREGET? %d, %d'%(i_block_offset, i_block_cnt))
+        buf = vx_handle.read_raw()         # read whatever dut sends
+        if not buf:
+            print('empty response from dut for block %d'%i_block_offset)
+            i_retries += 1
+            if i_retries > 5:
+                print('\n\n**** TOO MANY RETRIES ATTEMPTING TO GET DATA! ****')
+                if not i_block_offset:
+                    print('**** NO DATA RETUNED ****\n')
+                    sys.exit(-1)
+
+        # binary block CAPTUREGET returns #nccccxxxxxxx...
+        #   with little-endian float x bytes see manual page 139
+        # if b_show_debug:
+        #   print(' '.join(['%02X'%ord(x) for x in buf[:6]]))
+        #   print(str_blocks_hex(buf[6:262]))
+
+        raw_data = buf[2 + int(buf[1]):]
+        i_bytes_to_convert = min(i_bytes_remaining, len(raw_data))
+        # convert to floats
+        f_block_data = list(unpack_from('<%df'%(i_bytes_to_convert/4), raw_data))
+        # if b_show_debug:
+        #   print(len(f_block_data), 'floats received')
+        #   print(str_blocks_float(f_block_data))
+        f_data += f_block_data
+        i_block_offset += i_block_cnt
+        i_bytes_remaining -= i_block_cnt * 1024
+    return f_data
 
 sens_dict = {1000:0,
             500:1,
@@ -424,36 +500,39 @@ while parameters[6] < 3:#main loop
 
 
         sweep_num += 1 #this will help identify sweeps from each other
-        srs.write('SCNRUN') #start scan
-        srs.write('CAPTURESTART ONE, IMM')
-        while srs.ask('SCNSTATE?').strip() == '2':#scanning
-            #######################
-            # Collect Data
-           #######################
-            #this is meant to be faster than other loops
-            #vs = srs.ask('SNAPD?').split(',') #this is [Vx, Vy, Vmag, freq]
-            #R = float(vs[3])*1000 #this is the Voltage Magnitude in mV
-            #j = sens_dict[sens_keys[np.logical_not(sens_keys<R)][0]]
-            #k = input_range_dict[input_range_keys[np.logical_not(input_range_keys<R)][0]]
-            #srs.write('IRNG '+str(k))
-            #srs.write('SCAL '+str(j))
+        i_wait_count = parameters[3]//time_con
+        i_bytes_captured = capture_data(srs, i_wait_count, b_show_status = True)
+        f_data = retrieve_data(srs, i_bytes_captured, i_wait_count)
+        # srs.write('SCNRUN') #start scan
+        # srs.write('CAPTURESTART ONE, IMM')
+        # while srs.ask('SCNSTATE?').strip() == '2':#scanning
+        #     #######################
+        #     # Collect Data
+        #    #######################
+        #     #this is meant to be faster than other loops
+        #     #vs = srs.ask('SNAPD?').split(',') #this is [Vx, Vy, Vmag, freq]
+        #     #R = float(vs[3])*1000 #this is the Voltage Magnitude in mV
+        #     #j = sens_dict[sens_keys[np.logical_not(sens_keys<R)][0]]
+        #     #k = input_range_dict[input_range_keys[np.logical_not(input_range_keys<R)][0]]
+        #     #srs.write('IRNG '+str(k))
+        #     #srs.write('SCAL '+str(j))
             
 
-            #######################
-            # Save Data
-            #######################
-            #save_file.write(str((time.perf_counter()-intitial_time)/60) + "\t" +  str(float(ls.query('KRDG? a'))) + "\t" + str(float(vs[0])) + "\t" + str(float(vs[1]))+ '\t' + str(float(vs[2])) + '\t' + str(float(vs[3])) + '\t' + str(sweep_num)+"\n")
-            #save_file.flush()
+        #     #######################
+        #     # Save Data
+        #     #######################
+        #     #save_file.write(str((time.perf_counter()-intitial_time)/60) + "\t" +  str(float(ls.query('KRDG? a'))) + "\t" + str(float(vs[0])) + "\t" + str(float(vs[1]))+ '\t' + str(float(vs[2])) + '\t' + str(float(vs[3])) + '\t' + str(sweep_num)+"\n")
+        #     #save_file.flush()
 
-            #plt.pause(3*time_con)
-            pass
-        srs.write('CAPTURESTOP')
-        byte_num = srs.ask('CAPTUREPROG?').strip()
-        raw_data = srs.ask_binary_values('CAPTUREGET? 0 ' + byte_num)
+        #     #plt.pause(3*time_con)
+        #     pass
+        # srs.write('CAPTURESTOP')
+        # byte_num = srs.ask('CAPTUREPROG?').strip()
+        # raw_data = srs.ask_binary_values('CAPTUREGET? 0 ' + byte_num)
         # raw_data = srs.query('CAPTUREGET? 0 ' + byte_num)
         srs.write('SCNENBL 0')
         parameters = get_parameters(parameter_file)
-        print(raw_data)
+        print(f_data)
         #this part can afford to be slower because it is called 100x less
 
         #######################
