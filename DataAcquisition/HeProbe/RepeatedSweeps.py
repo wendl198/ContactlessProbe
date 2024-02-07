@@ -4,9 +4,9 @@ from datetime import datetime
 import os
 import pyvisa
 import time
-from collections import deque
 from scipy import optimize
 import warnings
+import traceback
 
 warnings.filterwarnings("ignore")
 
@@ -397,7 +397,7 @@ while parameters[6] < 3:#main loop
             ls.write('Range 1,1') #this turns the heater to low
             parameters = get_parameters(parameter_file)
 
-            buffer_file = open(os.path.join(save_path, "buffer.dat"), "w")
+            buffer_file = open(os.path.join(save_path, "buffer.dat"), "w+")
 
             intiate_scan(srs,f_center-parameters[4]/2,f_center+parameters[4]/2,parameters[5],parameters[3],False)
 
@@ -419,10 +419,11 @@ while parameters[6] < 3:#main loop
                 #######################
                 # Save Data
                 #######################
-
-                save_file.write(str((time.perf_counter()-intitial_time)/60) + "\t" +  str(float(ls.query('KRDG? a'))) + "\t" + str(float(vs[0])) + "\t" + str(float(vs[1]))+ '\t' + str(float(vs[2])) + '\t' + str(float(vs[3])) + '\t' + str(sweep_num)+"\n")
+                write_str = (str((time.perf_counter()-intitial_time)/60) + "\t" +  str(float(ls.query('KRDG? a'))) + "\t" + str(float(vs[0])) + "\t" + str(float(vs[1]))+ '\t' + str(float(vs[2])) + '\t' + str(float(vs[3])) + '\t' + str(sweep_num)+"\n")
+                
+                save_file.write(write_str)
                 save_file.flush()
-                buffer_file.write(str((time.perf_counter()-intitial_time)/60) + "\t" +  str(float(ls.query('KRDG? a'))) + "\t" + str(float(vs[0])) + "\t" + str(float(vs[1]))+ '\t' + str(float(vs[2])) + '\t' + str(float(vs[3])) + '\t' + str(sweep_num)+"\n")
+                buffer_file.write(write_str)
                 buffer_file.flush()
 
                 # plt.pause(3*time_con)
@@ -486,6 +487,7 @@ while parameters[6] < 3:#main loop
                 p3.set_xdata(np.append(p3.get_xdata(),T_avg))
                 p2.set_ydata(np.append(p2.get_ydata(),bestpars[0]))
                 p3.set_ydata(np.append(p3.get_ydata(),bestpars[1]))
+            
 
             #update limits
             bx.set_xlim(left = y1.min(), right = y1.max())
@@ -495,9 +497,9 @@ while parameters[6] < 3:#main loop
             dx.set_xlim(left = new_data[5][0]/1000, right = new_data[5][-1]/1000)
             ex.set_xlim(left = new_data[5][0]/1000, right = new_data[5][-1]/1000)
             fx.set_xlim(left = new_data[5][0]/1000, right = new_data[5][-1]/1000)
-            dx.set_ylim(bottom = np.min(new_data[2]), top = np.max(new_data[2]))
-            ex.set_ylim(bottom = np.min(new_data[3]), top = np.max(new_data[3]))
-            fx.set_ylim(bottom = np.min(new_data[4]), top = np.max(new_data[4]))
+            dx.set_ylim(bottom = 1000*np.min(new_data[2]), top = 1000*np.max(new_data[2]))
+            ex.set_ylim(bottom = 1000*np.min(new_data[3]), top = 1000*np.max(new_data[3]))
+            fx.set_ylim(bottom = 1000*np.min(new_data[4]), top = 1000*np.max(new_data[4]))
             if parameters[8]:
                 ax.set_xlim(left = 0, right = times[-1])
                 ax.set_ylim(bottom = y1.min(), top = y1.max())
@@ -525,6 +527,7 @@ while parameters[6] < 3:#main loop
         except Exception as error:
             parameters = get_parameters(parameter_file)
             print('Error: '+str(error))
+            traceback.print_exc()
             if parameters[6] == 2:
                 change_status(1,parameter_file)
                 parameters = get_parameters(parameter_file)
