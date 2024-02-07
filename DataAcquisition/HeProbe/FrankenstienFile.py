@@ -82,7 +82,7 @@ def show_status(left_t='', right_t=''):
     print(' %-30s %48s\r'%(left_t[:30], right_t[:48]), end=' ')
 
 
-def retrieve_data(vx_handle, i_bytes_captured, i_wait_count, s_channels = 'XYRT'):
+def retrieve_data(vx_handle, i_bytes_captured, i_wait_count, s_channels = 'XYRF'):
     """ Use the binary transfer command over vx interface to retrieve the capture buffer.
         maximum block count for CAPTUREGET? is 64 so loop over blocks as needed to
         get all the desired data.
@@ -90,7 +90,7 @@ def retrieve_data(vx_handle, i_bytes_captured, i_wait_count, s_channels = 'XYRT'
             Instead, I use the length of the binary buffer returned to calculate
             the number of floats to convert.
     """
-    i_bytes_remaining = min(i_bytes_captured, i_wait_count * 4 * len(s_channels))
+    i_bytes_remaining = min(i_bytes_captured, i_wait_count * 4 * 4)
     i_block_offset = 0
     f_data = []
     i_retries = 0
@@ -129,7 +129,7 @@ def retrieve_data(vx_handle, i_bytes_captured, i_wait_count, s_channels = 'XYRT'
 def dut_config(vx_handle, i_wait_count, str_chans = 'XYRF'):
     """ Setup the SR865 for streaming. Return the total expected sample count
     """
-    vx_handle.write('CAPTURECFG %s'%str_chans)    # the vars to captures
+    vx_handle.write('CAPTURECFG 3')    # the vars to captures
     i_cap_len_k = math.ceil(len(str_chans) * i_wait_count / 256.0)
     vx_handle.write('CAPTURELEN %d'%i_cap_len_k)   # in kB. dut rounds odd numbers up to next even
     # print 'CAPTURELEN %d'%i_cap_len_k       # in kB. dut rounds odd number up
@@ -444,7 +444,7 @@ while parameters[6] < 3:#main loop
 
             plt.pause(0.031)
 
-        f_center = p6.get_xdata()[np.argmin(p6.get_ydata())]
+        f_center = p6.get_xdata()[np.argmin(p6.get_ydata()[1:])]
         #start temp scan
         change_status(2,parameter_file)
         parameters = get_parameters(parameter_file)
@@ -457,10 +457,7 @@ while parameters[6] < 3:#main loop
                 change_status(1,parameter_file)
                 parameters = get_parameters(parameter_file)
                 time.sleep(.1)
-        except:
-            change_status(1,parameter_file)
-            parameters = get_parameters(parameter_file)
-            time.sleep(.1)
+                
 
             ls.write('RAMP 1,1,'+ parameters[0])
             time.sleep(0.05)
@@ -480,7 +477,7 @@ while parameters[6] < 3:#main loop
 
             sweep_num += 1 #this will help identify sweeps from each other
             i_wait_count = 256
-            f_rate_max = dut_config(srs, i_wait_count)
+            #f_rate_max = dut_config(srs, i_wait_count)
             t_timeout = 3
 
 
@@ -508,9 +505,7 @@ while parameters[6] < 3:#main loop
             t_end = time.perf_counter()
             srs.write('CAPTURESTOP')
             print('capture took %.3f seconds. Retrieving data...'%(t_end-t_start))
-            byte_num = srs.ask('CAPTUREPROG?').strip()
-            print(byte_num)
-            print(i_bytes_captured)
+            i_bytes_captured = int(srs.ask('CAPTUREPROG?')))*1024
             f_data = retrieve_data(srs, i_bytes_captured, i_wait_count)
             # srs.write('SCNRUN') #start scan
             # srs.write('CAPTURESTART ONE, IMM')
@@ -632,7 +627,13 @@ while parameters[6] < 3:#main loop
 
             # plt.pause(0.031)#show plot
 
-        
+        except Exception as error:
+            parameters = get_parameters(parameter_file)
+            print('Error: '+str(error))
+            if parameters[6] == 2:
+                change_status(1,parameter_file)
+                parameters = get_parameters(parameter_file)
+                time.sleep(.1)
 
 #######################
 # Close Instruments
