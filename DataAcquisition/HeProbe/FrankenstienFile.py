@@ -274,7 +274,7 @@ save_file = open(os.path.join(save_path, input("Please type the file name here: 
 save_file.write("Time (min)"   + "\t"+ 'Temp (K)'+"\t"+"Vx (V)" + "\t" + "Vy (V)"+ "\t" + "R (V)"+ "\t" + 'Freq (Hz)'+"\t"+ "Sweep Number: Current Time is "+formatted_datetime+'\n')
 intitial_time = time.perf_counter()#get intitial time
 
-
+parameters = get_parameters(parameter_file)
 # print('Sweeping at ' + str((freq_range[1]-freq_range[0])/scan_time*60) +' kHz/min')
 time.sleep(.05)
 
@@ -491,7 +491,7 @@ while parameters[6] < 3:#main loop
             """ tell the SR865 to take data and wait until it completes
             """
             srs.write('SCNRUN') #start scan
-            t_start = time.perf_counter()
+            t_start = (time.perf_counter()-intitial_time)/60
             srs.write('CAPTURESTART ONE, IMM')
             # i_bytes_captured = 0
             # i_last_cap_byte = 0
@@ -521,9 +521,7 @@ while parameters[6] < 3:#main loop
                 #this is meant to be faster than other loops
                 #R = float(srs.ask('SNAPD?').split(',')[3])*1000 #this is the Voltage Magnitude in mV
                 vs = srs.ask('SNAPD?').split(',') #this is [Vx, Vy, Vmag, freq]
-                print(vs)
-                R = float(vs[3])*1000 #this is the Voltage Magnitude in mV
-                j = sens_dict[sens_keys[np.logical_not(sens_keys<R)][0]]
+                R = float(vs[2])*1000 #this is the Voltage Magnitude in mV                j = sens_dict[sens_keys[np.logical_not(sens_keys<R)][0]]
                 k = input_range_dict[input_range_keys[np.logical_not(input_range_keys<R)][0]]
                 srs.write('IRNG '+str(k))
                 srs.write('SCAL '+str(j))
@@ -537,25 +535,22 @@ while parameters[6] < 3:#main loop
                 #save_file.flush()
 
                 #plt.pause(3*time_con)
-                pass
 
-            t_end = time.perf_counter()
+            t_end = (time.perf_counter()-intitial_time)/60
             srs.write('CAPTURESTOP')
             i_bytes_captured = int(srs.ask('CAPTUREPROG?'))*1024
             f_data = np.array(retrieve_data(srs, i_bytes_captured))
             srs.write('SCNENBL 0')
             parameters = get_parameters(parameter_file)
             print(f_data)
-            outputtimes = np.linspace(t_start,t_end,len(f_data//4))
+            outputtimes = np.linspace(t_start,t_end,len(f_data)//4)
             outputtemps = np.interp(outputtimes,ramptimes,ramptemps)#this is a little sketchy, but not bad
-
             #this part can afford to be slower because it is called 100x less
 
             #######################
             # Retrieve Data
             #######################
             reshaped_array = f_data.reshape(-1, 4)
-
             vxs,vys,vmags,freqs = (reshaped_array[:, i] for i in range(4))
             # new_data = [[],[],[],[],[],[]]#[time,temp,vx,vy,vmag,freq]
             # with open(save_path, 'r') as file:
@@ -571,6 +566,8 @@ while parameters[6] < 3:#main loop
             # Save Data
             #######################
             for i, freq in enumerate(freqs):
+                print(i,freq)
+                print(outputtimes[i],outputtemps[i],vxs[i],vys[i],vmags[i],freq ,sweep_num)
                 save_file.write(str(outputtimes[i]) + "\t" +  str(outputtemps[i]) + "\t" + str(vxs[i]) + "\t" + str(vys[i])+ '\t' + str(vmags[i]) + '\t' + str(freq) + '\t' + str(sweep_num)+"\n")
                 save_file.flush()
 
@@ -580,7 +577,7 @@ while parameters[6] < 3:#main loop
             #######################
 
             guesses1 = [f_center*1000,30,-.3,.26,0,0]
-            pbounds1 = np.array([[freqs[0],1,-1,-1,-1,-1],[max(freqs[-1]),1e4,1,1,1,1]]) # [[Lower bounds],[upper bounds]]
+            pbounds1 = np.array([[freqs[0],1,-1,-1,-1,-1],[freqs[-1],1e4,1,1,1,1]]) # [[Lower bounds],[upper bounds]]
             bestfit = optimize.curve_fit(full_lorenzian_fit_with_skew,freqs,vmags,guesses1, bounds=pbounds1)
             bestpars = bestfit[0]
 
