@@ -122,8 +122,7 @@ timeconsts_keys.sort()
 # adjustable parameters
 pause_time = .85 #time in sec
 time_con = 10e-3
-i = sens_dict[sens_keys[np.logical_not(sens_keys<time_con)][0]]
-
+i = timeconsts_dict[timeconsts_keys[np.logical_not(timeconsts_keys<time_con)][0]]
 
 
 set_command_list = [
@@ -278,7 +277,8 @@ while parameters[6] < 3:#main loop
         plt.pause(pause_time) #this displays the graph
 
     while parameters[6] == 1: #freq only ramp mode
-        intiate_scan(srs,500,4000,2000,30,False)
+        srs.write('FREQINT 500 KHZ')
+        intiate_scan(srs,500,4000,parameters[5],30,False)
         vs = srs.query('SNAPD?').split(',') #this is [Vx, Vy, Vmag, freq]
         #print(vs)
         values['Vx'] = float(vs[0])
@@ -304,8 +304,18 @@ while parameters[6] < 3:#main loop
             values['Vmag'] = float(vs[2])
             values['freq'] = float(vs[3]) 
             R = values['Vmag']*1000 #this is the Voltage Magnitude in mV
-            j = sens_dict[sens_keys[np.logical_not(sens_keys<R)][0]]
-            k = input_range_dict[input_range_keys[np.logical_not(input_range_keys<R)][0]]
+            sens_inds = np.logical_not(sens_keys<R)
+            range_inds = np.logical_not(input_range_keys<R)
+            if np.all(sens_inds == False):
+                j = sens_dict[sens_keys[-1]]
+            else:
+                j = sens_dict[sens_keys[np.logical_not(sens_keys<R)][0]]
+            if np.all(sens_inds == False):
+                k = input_range_dict[input_range_keys[-1]]
+            else:
+                k = input_range_dict[input_range_keys[np.logical_not(input_range_keys<R)][0]]
+
+            
             srs.write('IRNG '+str(k))
             srs.write('SCAL '+str(j))
             values['time'] = (time.perf_counter()-intitial_time)/60 #The time is now in minutes
@@ -372,6 +382,7 @@ while parameters[6] < 3:#main loop
 
         parameters = get_parameters(parameter_file)
         f_center = p6.get_xdata()[np.argmin(p6.get_ydata()[1:])]
+        R_max np.max(p6.get_ydata()[np.logical_not())
         #start temp scan
         if parameters[6] == 1: #allow for manual change of status
             change_status(2,parameter_file)
