@@ -4,15 +4,11 @@ from datetime import datetime
 import os
 import pyvisa
 import time
-from collections import deque
-from scipy import optimize
 import warnings
 import math
 from struct import unpack_from
-import signal
 import sys
-import vxi11        # required
-import docopt  
+import vxi11
 
 
 warnings.filterwarnings("ignore")
@@ -50,29 +46,30 @@ def change_status(new_status,f):
     file1.close()
     #status is an integer [0,2]
     # No Ramp = 0
-    # StartRamp = 1
-    # Stop = 2
+    # Intial freq sweep to find rough resonance = 1
+    # Temp Ramp = 2
+    # Stop = 3+
 
 
 def intiate_scan(instrument,start_freq,end_freq,signal_amp,scan_time,repeat,wait_time = 0.05):
     for com in set_command_list:
         instrument.write(com) #execute command
-        # time.sleep(wait_time)#wait
+        time.sleep(wait_time)#wait
     instrument.write('SLVL '+str(signal_amp)+' MV') #intialize voltage
-    # time.sleep(wait_time)#wait
+    time.sleep(wait_time)#wait
     instrument.write('FREQ '+ str(start_freq) + ' KHZ') #intialize frequency
-    # time.sleep(wait_time)#wait
+    time.sleep(wait_time)#wait
     instrument.write('SCNFREQ 0, '+str(start_freq)+' KHZ') #scan freq range
-    # time.sleep(wait_time)#wait
+    time.sleep(wait_time)#wait
     instrument.write('SCNFREQ 1, '+str(end_freq)+' KHZ')
-    # time.sleep(wait_time)#wait
+    time.sleep(wait_time)#wait
     instrument.write('SCNSEC ' +str(scan_time)) #total scan time in seconds
-    # time.sleep(wait_time)#wait
+    time.sleep(wait_time)#wait
     if repeat:
         instrument.write('SCNEND 2') #0 is an individual scan, 1 repeats
     else:
         instrument.write('SCNEND 0') #0 is an individual scan, 1 repeats
-        
+    time.sleep(wait_time)#wait
     instrument.write('SCNRST') #reset scan
     instrument.write('SCNENBL ON') #intiate scan
 
@@ -83,34 +80,6 @@ def show_status(left_t='', right_t=''):
     """ Simple text status line that overwrites itself to prevent scrolling.
     """
     print(' %-30s %48s\r'%(left_t[:30], right_t[:48]), end=' ')
-
-def capture_data(vx_handle, i_wait_count, b_show_status = True, t_timeout = 5, s_mode = 'IMM', s_channels = 'XYRT'): #pylint: disable=R0913
-    """ tell the SR865 to take data and wait until it completes
-    """
-    t_start = time.perf_counter()
-    vx_handle.write('CAPTURESTART ONE, %s'%s_mode)
-    i_bytes_captured = 0
-    i_last_cap_byte = 0
-    t_last = t_start
-    while i_bytes_captured < (i_wait_count * 4 * len(s_channels)):
-        i_bytes_captured = int(vx_handle.ask('CAPTUREBYTES?'))
-        if b_show_status:
-            show_status('dut has captured %4d of %4d samples'%
-                        (i_bytes_captured / (4 * len(s_channels)), i_wait_count))
-        if (i_bytes_captured - i_last_cap_byte) == 0:
-            if (time.perf_counter() - t_last) > t_timeout:
-                print('\n\n**** CAPTURE TIMEOUT! ****')
-                if not i_bytes_captured:
-                    print('**** NO DATA CAPTURED - missing trigger? ****\n')
-                    sys.exit(-1)
-                break
-        else:
-            t_last = time.perf_counter()
-        i_last_cap_byte = i_bytes_captured
-    t_end = time.perf_counter()
-    vx_handle.write('CAPTURESTOP')
-    print('capture took %.3f seconds. Retrieving data...'%(t_end-t_start))
-    return i_bytes_captured
 
 
 def retrieve_data(vx_handle, i_bytes_captured, i_wait_count, s_channels = 'XYRT'):
@@ -129,6 +98,7 @@ def retrieve_data(vx_handle, i_bytes_captured, i_wait_count, s_channels = 'XYRT'
         i_block_cnt = min(64, int(math.ceil(i_bytes_remaining / 1024.0)))
         vx_handle.write('CAPTUREGET? %d, %d'%(i_block_offset, i_block_cnt))
         buf = vx_handle.read_raw()         # read whatever dut sends
+
         if not buf:
             print('empty response from dut for block %d'%i_block_offset)
             i_retries += 1
@@ -155,6 +125,16 @@ def retrieve_data(vx_handle, i_bytes_captured, i_wait_count, s_channels = 'XYRT'
         i_block_offset += i_block_cnt
         i_bytes_remaining -= i_block_cnt * 1024
     return f_data
+
+def dut_config(vx_handle, i_wait_count, str_chans = 'XYRF'):
+    """ Setup the SR865 for streaming. Return the total expected sample count
+    """
+    vx_handle.write('CAPTURECFG %s'%str_chans)    # the vars to captures
+    i_cap_len_k = math.ceil(len(str_chans) * i_wait_count / 256.0)
+    vx_handle.write('CAPTURELEN %d'%i_cap_len_k)   # in kB. dut rounds odd numbers up to next even
+    # print 'CAPTURELEN %d'%i_cap_len_k       # in kB. dut rounds odd number up
+    f_rate_max = float(vx_handle.ask('CAPTURERATEMAX?'))      # filters determine the max data rate
+    return f_rate_max
 
 sens_dict = {1000:0,
             500:1,
@@ -222,6 +202,15 @@ set_command_list = [
     'CDSP 2, 2', #third is R
     'CDSP 3, 15', #fourth is freq
 ]
+
+    # data_capture_command_list = [
+    #     'CAPTURECFG 3', #sets capture of all four displayed parameters
+    #     'CAPTURERATE 6', #sets capture rate to 1.2kHz for 3-10 ms time constant
+    #     'CAPTURESTART ONE, IMM', #start scan immedaitely
+    #     'CAPTURESTOP' #stop scan
+    #     'CAPTUREPROG?' #get kbyte size of completed capture
+    #     'CAPTUREGET? 0 ' + str 
+    # ]
 
 save_path = 'C:\\Users\\Contactless\\Desktop\\Contactless Probe\\RawData\\HeProbe\\'
 parameter_path = 'C:\\Users\\Contactless\\Desktop\\Contactless Probe\\HeProbe\\HeProbeParameters.txt'
@@ -362,9 +351,7 @@ while parameters[6] < 3:#main loop
 
         plt.pause(pause_time) #this displays the graph
 
-        
-
-    while parameters[6] == 1: #ramp mode
+    while parameters[6] == 1: #freq only ramp mode
         intiate_scan(srs,500,4000,2000,30,False)
         vs = srs.ask('SNAPD?').split(',') #this is [Vx, Vy, Vmag, freq]
         #print(vs)
@@ -464,8 +451,7 @@ while parameters[6] < 3:#main loop
         srs.write('SCNENBL 0')
         print('Switching to Temp Ramp')
 
-
-    while parameters[6] == 2: #ramp mode
+    while parameters[6] == 2: #temp ramp mode
         try:
             if not(f_center-parameters[4]/2>=0 and f_center+parameters[4]/2<=4000):#check if the freq scan will be valid
                 change_status(1,parameter_file)
@@ -476,152 +462,175 @@ while parameters[6] < 3:#main loop
             parameters = get_parameters(parameter_file)
             time.sleep(.1)
 
-        ls.write('RAMP 1,1,'+ parameters[0])
-        time.sleep(0.05)
-        ls.write('SETP 1,'+ parameters[2])#this sets the setpoint to the final temp
-        time.sleep(0.05)
-        ls.write('PID 1,'+ parameters[7][0]+','+ parameters[7][1]+',' + parameters[7][2])#this sets the setpoint to the final temp
-        time.sleep(0.05)
-        ls.write('Range 1,1') #this turns the heater to low
-        parameters = get_parameters(parameter_file)
+            ls.write('RAMP 1,1,'+ parameters[0])
+            time.sleep(0.05)
+            ls.write('SETP 1,'+ parameters[2])#this sets the setpoint to the final temp
+            time.sleep(0.05)
+            ls.write('PID 1,'+ parameters[7][0]+','+ parameters[7][1]+',' + parameters[7][2])#this sets the setpoint to the final temp
+            time.sleep(0.05)
+            ls.write('Range 1,1') #this turns the heater to low
+            parameters = get_parameters(parameter_file)
 
-        intiate_scan(srs,f_center-parameters[4]/2,f_center+parameters[4]/2,parameters[5],parameters[3],False)
-# data_capture_command_list = [
-#     'CAPTURECFG 3', #sets capture of all four displayed parameters
-#     'CAPTURERATE 6', #sets capture rate to 1.2kHz for 3-10 ms time constant
-#     'CAPTURESTART ONE, IMM', #start scan immedaitely
-#     'CAPTURESTOP' #stop scan
-#     'CAPTUREPROG?' #get kbyte size of completed capture
-#     'CAPTUREGET? 0 ' + str 
-# ]
-        if sweep_num == 0:
-            srs.write('CAPTURECFG 3')#sets capture of all four displayed parameters
-            srs.write('CAPTURERATE 6')#sets capture rate to 1.2kHz for 3-10 ms time constant
+            intiate_scan(srs,f_center-parameters[4]/2,f_center+parameters[4]/2,parameters[5],parameters[3],False)
+
+            if sweep_num == 0:
+                srs.write('CAPTURECFG 3')#sets capture of all four displayed parameters
+                srs.write('CAPTURERATE 6')#sets capture rate to 1.2kHz for 3-10 ms time constant
 
 
-        sweep_num += 1 #this will help identify sweeps from each other
-        i_wait_count = parameters[3]//time_con
-        i_bytes_captured = capture_data(srs, i_wait_count, b_show_status = True)
-        f_data = retrieve_data(srs, i_bytes_captured, i_wait_count)
-        # srs.write('SCNRUN') #start scan
-        # srs.write('CAPTURESTART ONE, IMM')
-        # while srs.ask('SCNSTATE?').strip() == '2':#scanning
-        #     #######################
-        #     # Collect Data
-        #    #######################
-        #     #this is meant to be faster than other loops
-        #     #vs = srs.ask('SNAPD?').split(',') #this is [Vx, Vy, Vmag, freq]
-        #     #R = float(vs[3])*1000 #this is the Voltage Magnitude in mV
-        #     #j = sens_dict[sens_keys[np.logical_not(sens_keys<R)][0]]
-        #     #k = input_range_dict[input_range_keys[np.logical_not(input_range_keys<R)][0]]
-        #     #srs.write('IRNG '+str(k))
-        #     #srs.write('SCAL '+str(j))
-            
-
-        #     #######################
-        #     # Save Data
-        #     #######################
-        #     #save_file.write(str((time.perf_counter()-intitial_time)/60) + "\t" +  str(float(ls.query('KRDG? a'))) + "\t" + str(float(vs[0])) + "\t" + str(float(vs[1]))+ '\t' + str(float(vs[2])) + '\t' + str(float(vs[3])) + '\t' + str(sweep_num)+"\n")
-        #     #save_file.flush()
-
-        #     #plt.pause(3*time_con)
-        #     pass
-        # srs.write('CAPTURESTOP')
-        # byte_num = srs.ask('CAPTUREPROG?').strip()
-        # raw_data = srs.ask_binary_values('CAPTUREGET? 0 ' + byte_num)
-        # raw_data = srs.query('CAPTUREGET? 0 ' + byte_num)
-        srs.write('SCNENBL 0')
-        parameters = get_parameters(parameter_file)
-        print(f_data)
-        #this part can afford to be slower because it is called 100x less
-
-        #######################
-        # Retrieve Data
-        #######################
-        # new_data = [[],[],[],[],[],[]]#[time,temp,vx,vy,vmag,freq]
-        # with open(save_path, 'r') as file:
-        #     last_lines = deque(file, maxlen=parameters[3]//(3*time_con))
-        # for line in last_lines:
-        #     data = line.split()
-        #     if data[-1] == sweep_num:
-        #         for i, dat in enumerate(data[:-1]):
-        #             new_data[i].append(float(dat))
-        # new_data= np.array(new_data)
+            sweep_num += 1 #this will help identify sweeps from each other
+            i_wait_count = 256
+            f_rate_max = dut_config(srs, i_wait_count)
+            t_timeout = 3
 
 
-        #######################
-        # fitting
-        #######################
+            """ tell the SR865 to take data and wait until it completes
+            """
+            t_start = time.perf_counter()
+            srs.write('CAPTURESTART ONE, IMM')
+            i_bytes_captured = 0
+            i_last_cap_byte = 0
+            t_last = t_start
+            while i_bytes_captured < (i_wait_count * 4 * 4):
+                i_bytes_captured = int(srs.ask('CAPTUREBYTES?'))
+                show_status('dut has captured %4d of %4d samples'%
+                                (i_bytes_captured / (4 * 4), i_wait_count))
+                if (i_bytes_captured - i_last_cap_byte) == 0:
+                    if (time.perf_counter() - t_last) > t_timeout:
+                        print('\n\n**** CAPTURE TIMEOUT! ****')
+                        if not i_bytes_captured:
+                            print('**** NO DATA CAPTURED - missing trigger? ****\n')
+                            sys.exit(-1)
+                        break
+                else:
+                    t_last = time.perf_counter()
+                i_last_cap_byte = i_bytes_captured
+            t_end = time.perf_counter()
+            srs.write('CAPTURESTOP')
+            print('capture took %.3f seconds. Retrieving data...'%(t_end-t_start))
+            byte_num = srs.ask('CAPTUREPROG?').strip()
+            print(byte_num)
+            print(i_bytes_captured)
+            f_data = retrieve_data(srs, i_bytes_captured, i_wait_count)
+            # srs.write('SCNRUN') #start scan
+            # srs.write('CAPTURESTART ONE, IMM')
+            # while srs.ask('SCNSTATE?').strip() == '2':#scanning
+            #     #######################
+            #     # Collect Data
+            #    #######################
+            #     #this is meant to be faster than other loops
+            #     #vs = srs.ask('SNAPD?').split(',') #this is [Vx, Vy, Vmag, freq]
+            #     #R = float(vs[3])*1000 #this is the Voltage Magnitude in mV
+            #     #j = sens_dict[sens_keys[np.logical_not(sens_keys<R)][0]]
+            #     #k = input_range_dict[input_range_keys[np.logical_not(input_range_keys<R)][0]]
+            #     #srs.write('IRNG '+str(k))
+            #     #srs.write('SCAL '+str(j))
+                
 
-        # guesses1 = [f_center*1000,30,-.3,.26,0,0]
-        # pbounds1 = np.array([[min(new_data[5]),1,-1,-1,-1,-1],[max(new_data[5]),1e4,1,1,1,1]]) # [[Lower bounds],[upper bounds]]
-        # bestfit = optimize.curve_fit(full_lorenzian_fit_with_skew,new_data[5],new_data[4]*1000,guesses1, bounds=pbounds1)
-        # bestpars = bestfit[0]
+            #     #######################
+            #     # Save Data
+            #     #######################
+            #     #save_file.write(str((time.perf_counter()-intitial_time)/60) + "\t" +  str(float(ls.query('KRDG? a'))) + "\t" + str(float(vs[0])) + "\t" + str(float(vs[1]))+ '\t' + str(float(vs[2])) + '\t' + str(float(vs[3])) + '\t' + str(sweep_num)+"\n")
+            #     #save_file.flush()
 
-        #######################
-        # Plotting
-        #######################
+            #     #plt.pause(3*time_con)
+            #     pass
+            # srs.write('CAPTURESTOP')
+            # byte_num = srs.ask('CAPTUREPROG?').strip()
+            # raw_data = srs.ask_binary_values('CAPTUREGET? 0 ' + byte_num)
+            # raw_data = srs.query('CAPTUREGET? 0 ' + byte_num)
+            srs.write('SCNENBL 0')
+            parameters = get_parameters(parameter_file)
+            print(f_data)
+            #this part can afford to be slower because it is called 100x less
 
-        # #append time data
-        # times = np.append(p1.get_xdata(),new_data[0])
-        # y1 = np.append(p1.get_ydata(),new_data[1])
-        # p1.set_xdata(times)
-        # p1.set_ydata(y1)
+            #######################
+            # Retrieve Data
+            #######################
+            # new_data = [[],[],[],[],[],[]]#[time,temp,vx,vy,vmag,freq]
+            # with open(save_path, 'r') as file:
+            #     last_lines = deque(file, maxlen=parameters[3]//(3*time_con))
+            # for line in last_lines:
+            #     data = line.split()
+            #     if data[-1] == sweep_num:
+            #         for i, dat in enumerate(data[:-1]):
+            #             new_data[i].append(float(dat))
+            # new_data= np.array(new_data)
 
-        # #show voltage for previous scan
-        # p4.set_xdata(new_data[5]/1000)
-        # p5.set_xdata(new_data[5]/1000)
-        # p6.set_xdata(new_data[5]/1000)
-        # p4.set_ydata(1000*new_data[2])
-        # p5.set_ydata(1000*new_data[3])
-        # p6.set_ydata(1000*new_data[4])
 
-        # #Q factor and res freq data
-        # if sweep_num == 1:
-        #     p2.set_xdata([(T_avg := np.average(new_data[1]))])
-        #     p3.set_xdata([T_avg])
-        #     p2.set_ydata([bestpars[0]])
-        #     p3.set_ydata([bestpars[1]])
-        # else:
-        #     p2.set_xdata(np.append(p2.get_xdata(),(T_avg := np.average(new_data[1]))))
-        #     p3.set_xdata(np.append(p3.get_xdata(),T_avg))
-        #     p2.set_ydata(np.append(p2.get_ydata(),bestpars[0]))
-        #     p3.set_ydata(np.append(p3.get_ydata(),bestpars[1]))
+            #######################
+            # fitting
+            #######################
 
-        # #update limits
-        # bx.set_xlim(left = y1.min(), right = y1.max())
-        # cx.set_xlim(left = y1.min(), right = y1.max())
-        # bx.set_ylim(bottom = np.min(p2.get_ydata()), top = np.max(p2.get_ydata()))
-        # cx.set_ylim(bottom = np.min(p3.get_ydata()), top = np.max(p3.get_ydata()))
-        # dx.set_xlim(left = new_data[5][0]/1000, right = new_data[5][-1]/1000)
-        # ex.set_xlim(left = new_data[5][0]/1000, right = new_data[5][-1]/1000)
-        # fx.set_xlim(left = new_data[5][0]/1000, right = new_data[5][-1]/1000)
-        # dx.set_ylim(bottom = np.min(new_data[2]), top = np.max(new_data[2]))
-        # ex.set_ylim(bottom = np.min(new_data[3]), top = np.max(new_data[3]))
-        # fx.set_ylim(bottom = np.min(new_data[4]), top = np.max(new_data[4]))
-        # if parameters[8]:
-        #     ax.set_xlim(left = 0, right = times[-1])
-        #     ax.set_ylim(bottom = y1.min(), top = y1.max())
-        # else:
-        #     if len(parameters[9]) == 2:
-        #         t0 = float(parameters[9][0])
-        #         if t0> times[-1]:
-        #             t0 = times[-1]-.5
-        #         t1 = float(parameters[9][1])
-        #         inds = np.logical_and(times >= t0, times <= t1)
-        #         ax.set_xlim(left = t0,right = t1)
-        #     elif len(parameters[9]) == 1:
-        #         t0 = float(parameters[9][0])
-        #         if t0> times[-1]:
-        #             t0 = times[-1]-.5
-        #         inds = np.logical_not(times<t0)
-        #         ax.set_xlim(left = t0,right = times[-1])
-        #     else:
-        #         inds = np.logical_not(times<0)
-        #         ax.set_xlim(left = 0, right = times[-1])
-        #     ax.set_ylim(bottom = y1[inds].min(), top = y1[inds].max())
+            # guesses1 = [f_center*1000,30,-.3,.26,0,0]
+            # pbounds1 = np.array([[min(new_data[5]),1,-1,-1,-1,-1],[max(new_data[5]),1e4,1,1,1,1]]) # [[Lower bounds],[upper bounds]]
+            # bestfit = optimize.curve_fit(full_lorenzian_fit_with_skew,new_data[5],new_data[4]*1000,guesses1, bounds=pbounds1)
+            # bestpars = bestfit[0]
 
-        # plt.pause(0.031)#show plot
+            #######################
+            # Plotting
+            #######################
+
+            # #append time data
+            # times = np.append(p1.get_xdata(),new_data[0])
+            # y1 = np.append(p1.get_ydata(),new_data[1])
+            # p1.set_xdata(times)
+            # p1.set_ydata(y1)
+
+            # #show voltage for previous scan
+            # p4.set_xdata(new_data[5]/1000)
+            # p5.set_xdata(new_data[5]/1000)
+            # p6.set_xdata(new_data[5]/1000)
+            # p4.set_ydata(1000*new_data[2])
+            # p5.set_ydata(1000*new_data[3])
+            # p6.set_ydata(1000*new_data[4])
+
+            # #Q factor and res freq data
+            # if sweep_num == 1:
+            #     p2.set_xdata([(T_avg := np.average(new_data[1]))])
+            #     p3.set_xdata([T_avg])
+            #     p2.set_ydata([bestpars[0]])
+            #     p3.set_ydata([bestpars[1]])
+            # else:
+            #     p2.set_xdata(np.append(p2.get_xdata(),(T_avg := np.average(new_data[1]))))
+            #     p3.set_xdata(np.append(p3.get_xdata(),T_avg))
+            #     p2.set_ydata(np.append(p2.get_ydata(),bestpars[0]))
+            #     p3.set_ydata(np.append(p3.get_ydata(),bestpars[1]))
+
+            # #update limits
+            # bx.set_xlim(left = y1.min(), right = y1.max())
+            # cx.set_xlim(left = y1.min(), right = y1.max())
+            # bx.set_ylim(bottom = np.min(p2.get_ydata()), top = np.max(p2.get_ydata()))
+            # cx.set_ylim(bottom = np.min(p3.get_ydata()), top = np.max(p3.get_ydata()))
+            # dx.set_xlim(left = new_data[5][0]/1000, right = new_data[5][-1]/1000)
+            # ex.set_xlim(left = new_data[5][0]/1000, right = new_data[5][-1]/1000)
+            # fx.set_xlim(left = new_data[5][0]/1000, right = new_data[5][-1]/1000)
+            # dx.set_ylim(bottom = np.min(new_data[2]), top = np.max(new_data[2]))
+            # ex.set_ylim(bottom = np.min(new_data[3]), top = np.max(new_data[3]))
+            # fx.set_ylim(bottom = np.min(new_data[4]), top = np.max(new_data[4]))
+            # if parameters[8]:
+            #     ax.set_xlim(left = 0, right = times[-1])
+            #     ax.set_ylim(bottom = y1.min(), top = y1.max())
+            # else:
+            #     if len(parameters[9]) == 2:
+            #         t0 = float(parameters[9][0])
+            #         if t0> times[-1]:
+            #             t0 = times[-1]-.5
+            #         t1 = float(parameters[9][1])
+            #         inds = np.logical_and(times >= t0, times <= t1)
+            #         ax.set_xlim(left = t0,right = t1)
+            #     elif len(parameters[9]) == 1:
+            #         t0 = float(parameters[9][0])
+            #         if t0> times[-1]:
+            #             t0 = times[-1]-.5
+            #         inds = np.logical_not(times<t0)
+            #         ax.set_xlim(left = t0,right = times[-1])
+            #     else:
+            #         inds = np.logical_not(times<0)
+            #         ax.set_xlim(left = 0, right = times[-1])
+            #     ax.set_ylim(bottom = y1[inds].min(), top = y1[inds].max())
+
+            # plt.pause(0.031)#show plot
 
         
 
