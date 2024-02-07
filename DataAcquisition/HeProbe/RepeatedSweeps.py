@@ -382,7 +382,12 @@ while parameters[6] < 3:#main loop
 
         parameters = get_parameters(parameter_file)
         f_center = p6.get_xdata()[np.argmin(p6.get_ydata()[1:])]
-        R_max np.max(p6.get_ydata()[np.logical_not())
+        freqs = p4.get_xdata
+        R_max  = np.max(p6.get_ydata()[np.logical_and(freqs>=f_center-parameters[4]/2, freqs<=f_center+parameters[4]/2)])
+        j = sens_dict[sens_keys[np.logical_not(sens_keys<R_max)][0]]
+        k = input_range_dict[input_range_keys[np.logical_not(input_range_keys<R_max)][0]]
+        srs.write('IRNG '+str(k))
+        srs.write('SCAL '+str(j))
         #start temp scan
         if parameters[6] == 1: #allow for manual change of status
             change_status(2,parameter_file)
@@ -420,12 +425,12 @@ while parameters[6] < 3:#main loop
                 #######################
                 #this is meant to be faster than other loops
                 vs = srs.query('SNAPD?').split(',') #this is [Vx, Vy, Vmag, freq]
-                R = float(vs[2])*1000 #this is the Voltage Magnitude in mV
-                j = sens_dict[sens_keys[np.logical_not(sens_keys<R)][0]]
-                k = input_range_dict[input_range_keys[np.logical_not(input_range_keys<R)][0]]
-                srs.write('IRNG '+str(k))
-                srs.write('SCAL '+str(j))
+                # R = float(vs[2])*1000 #this is the Voltage Magnitude in mV
+                # j = sens_dict[sens_keys[np.logical_not(sens_keys<R)][0]]
+                # k = input_range_dict[input_range_keys[np.logical_not(input_range_keys<R)][0]]
                 
+                # srs.write('IRNG '+str(k))
+                # srs.write('SCAL '+str(j))
 
                 #######################
                 # Save Data
