@@ -445,12 +445,14 @@ while parameters[6] < 3:#main loop
 
             plt.pause(0.031)
 
+        parameters = get_parameters(parameter_file)
         f_center = p6.get_xdata()[np.argmin(p6.get_ydata()[1:])]
         #start temp scan
-        change_status(2,parameter_file)
-        parameters = get_parameters(parameter_file)
-        srs.write('SCNENBL 0')
-        print('Switching to Temp Ramp')
+        if parameters[6] == 1: #allow for manual change of status
+            change_status(2,parameter_file)
+            parameters = get_parameters(parameter_file)
+            srs.write('SCNENBL 0')
+            print('Switching to Temp Ramp')
 
     while parameters[6] == 2: #temp ramp mode
         try:
