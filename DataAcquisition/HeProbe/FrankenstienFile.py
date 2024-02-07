@@ -490,6 +490,7 @@ while parameters[6] < 3:#main loop
 
             """ tell the SR865 to take data and wait until it completes
             """
+            srs.write('SCNRUN') #start scan
             t_start = time.perf_counter()
             srs.write('CAPTURESTART ONE, IMM')
             # i_bytes_captured = 0
