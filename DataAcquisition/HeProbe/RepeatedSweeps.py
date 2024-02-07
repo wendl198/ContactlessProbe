@@ -397,6 +397,8 @@ while parameters[6] < 3:#main loop
             ls.write('Range 1,1') #this turns the heater to low
             parameters = get_parameters(parameter_file)
 
+            buffer_file = open(os.path.join(save_path, "buffer.dat"), "w")
+
             intiate_scan(srs,f_center-parameters[4]/2,f_center+parameters[4]/2,parameters[5],parameters[3],False)
 
             sweep_num += 1 #this will help identify sweeps from each other
@@ -407,7 +409,7 @@ while parameters[6] < 3:#main loop
                 #######################
                 #this is meant to be faster than other loops
                 vs = srs.query('SNAPD?').split(',') #this is [Vx, Vy, Vmag, freq]
-                R = float(vs[3])*1000 #this is the Voltage Magnitude in mV
+                R = float(vs[2])*1000 #this is the Voltage Magnitude in mV
                 j = sens_dict[sens_keys[np.logical_not(sens_keys<R)][0]]
                 k = input_range_dict[input_range_keys[np.logical_not(input_range_keys<R)][0]]
                 srs.write('IRNG '+str(k))
@@ -420,6 +422,8 @@ while parameters[6] < 3:#main loop
 
                 save_file.write(str((time.perf_counter()-intitial_time)/60) + "\t" +  str(float(ls.query('KRDG? a'))) + "\t" + str(float(vs[0])) + "\t" + str(float(vs[1]))+ '\t' + str(float(vs[2])) + '\t' + str(float(vs[3])) + '\t' + str(sweep_num)+"\n")
                 save_file.flush()
+                buffer_file.write(str((time.perf_counter()-intitial_time)/60) + "\t" +  str(float(ls.query('KRDG? a'))) + "\t" + str(float(vs[0])) + "\t" + str(float(vs[1]))+ '\t' + str(float(vs[2])) + '\t' + str(float(vs[3])) + '\t' + str(sweep_num)+"\n")
+                buffer_file.flush()
 
                 # plt.pause(3*time_con)
                 
@@ -432,12 +436,13 @@ while parameters[6] < 3:#main loop
             #######################
             # Retrieve Data
             #######################
+            buffer_file.seek(0) #resets pointer to top of the file
+            lines = buffer_file.readlines()
+            buffer_file.close()
             new_data = [[],[],[],[],[],[]]#[time,temp,vx,vy,vmag,freq]
-            with open(save_path, 'r') as file:
-                last_lines = deque(file, maxlen=parameters[3]//(3*time_con))
-            for line in last_lines:
+            for line in lines:
                 data = line.split()
-                if data[-1] == sweep_num:
+                if int(data[-1]) == sweep_num:
                     for i, dat in enumerate(data[:-1]):
                         new_data[i].append(float(dat))
             new_data= np.array(new_data)
@@ -517,10 +522,13 @@ while parameters[6] < 3:#main loop
 
             plt.pause(0.031)#show plot
 
-        except:
-            change_status(1,parameter_file)
+        except Exception as error:
             parameters = get_parameters(parameter_file)
-            time.sleep(.1)
+            print('Error: '+str(error))
+            if parameters[6] == 2:
+                change_status(1,parameter_file)
+                parameters = get_parameters(parameter_file)
+                time.sleep(.1)
 
         
 
