@@ -11,7 +11,7 @@ import math
 from struct import unpack_from
 import signal
 import sys
-import vxi11            # required
+import vxi11        # required
 import docopt  
 
 
@@ -191,7 +191,7 @@ ex.set_ylabel('Vy (mV)')
 fx.set_ylabel('Voltage Magnitude (mV)')
 
 T0 = float(ls.query('KRDG? a'))
-vx0,vy0,R0,f0 = srs.query('SNAPD?').split(',')
+vx0,vy0,R0,f0 = srs.ask('SNAPD?').split(',')
 p1, = ax.plot(0,T0,'ko-')
 p2, = bx.plot(0,0,'ro-')
 p3, = cx.plot(0,0,'bo-') 
@@ -226,7 +226,7 @@ while parameters[6] < 3:#main loop
 
         values['time'] = (time.perf_counter()-intitial_time)/60 #The time is now in minutes
         values['Temp'] = float(ls.query('KRDG? a')) #temp in K
-        vs = srs.query('SNAPD?').split(',') #this is [Vx, Vy, Vmag, freq]
+        vs = srs.ask('SNAPD?').split(',') #this is [Vx, Vy, Vmag, freq]
         values['Vx'] = float(vs[0])
         values['Vy'] = float(vs[1])
         values['Vmag'] = float(vs[2])
@@ -290,7 +290,7 @@ while parameters[6] < 3:#main loop
 
     while parameters[6] == 1: #ramp mode
         intiate_scan(srs,500,4000,2000,30,False)
-        vs = srs.query('SNAPD?').split(',') #this is [Vx, Vy, Vmag, freq]
+        vs = srs.ask('SNAPD?').split(',') #this is [Vx, Vy, Vmag, freq]
         #print(vs)
         values['Vx'] = float(vs[0])
         values['Vy'] = float(vs[1])
@@ -307,9 +307,9 @@ while parameters[6] < 3:#main loop
         time.sleep(0.1)
         freqs = [values['freq']/1000]
         
-        while srs.query('SCNSTATE?').strip() == '2':#scanning
+        while srs.ask('SCNSTATE?').strip() == '2':#scanning
             
-            vs = srs.query('SNAPD?').split(',') #this is [Vx, Vy, Vmag, freq]
+            vs = srs.ask('SNAPD?').split(',') #this is [Vx, Vy, Vmag, freq]
             values['Vx'] = float(vs[0])
             values['Vy'] = float(vs[1])
             values['Vmag'] = float(vs[2])
@@ -426,30 +426,30 @@ while parameters[6] < 3:#main loop
         sweep_num += 1 #this will help identify sweeps from each other
         srs.write('SCNRUN') #start scan
         srs.write('CAPTURESTART ONE, IMM')
-        while srs.query('SCNSTATE?').strip() == '2':#scanning
+        while srs.ask('SCNSTATE?').strip() == '2':#scanning
             #######################
             # Collect Data
-            #######################
+           #######################
             #this is meant to be faster than other loops
-            vs = srs.query('SNAPD?').split(',') #this is [Vx, Vy, Vmag, freq]
-            R = float(vs[3])*1000 #this is the Voltage Magnitude in mV
-            j = sens_dict[sens_keys[np.logical_not(sens_keys<R)][0]]
-            k = input_range_dict[input_range_keys[np.logical_not(input_range_keys<R)][0]]
-            srs.write('IRNG '+str(k))
-            srs.write('SCAL '+str(j))
+            #vs = srs.ask('SNAPD?').split(',') #this is [Vx, Vy, Vmag, freq]
+            #R = float(vs[3])*1000 #this is the Voltage Magnitude in mV
+            #j = sens_dict[sens_keys[np.logical_not(sens_keys<R)][0]]
+            #k = input_range_dict[input_range_keys[np.logical_not(input_range_keys<R)][0]]
+            #srs.write('IRNG '+str(k))
+            #srs.write('SCAL '+str(j))
             
 
             #######################
             # Save Data
             #######################
+            #save_file.write(str((time.perf_counter()-intitial_time)/60) + "\t" +  str(float(ls.query('KRDG? a'))) + "\t" + str(float(vs[0])) + "\t" + str(float(vs[1]))+ '\t' + str(float(vs[2])) + '\t' + str(float(vs[3])) + '\t' + str(sweep_num)+"\n")
+            #save_file.flush()
 
-            save_file.write(str((time.perf_counter()-intitial_time)/60) + "\t" +  str(float(ls.query('KRDG? a'))) + "\t" + str(float(vs[0])) + "\t" + str(float(vs[1]))+ '\t' + str(float(vs[2])) + '\t' + str(float(vs[3])) + '\t' + str(sweep_num)+"\n")
-            save_file.flush()
-
-            plt.pause(3*time_con)
+            #plt.pause(3*time_con)
+            pass
         srs.write('CAPTURESTOP')
-        byte_num = srs.query('CAPTUREPROG?').strip()
-        raw_data = srs.query_binary_values('CAPTUREGET? 0 ' + byte_num)
+        byte_num = srs.ask('CAPTUREPROG?').strip()
+        raw_data = srs.ask_binary_values('CAPTUREGET? 0 ' + byte_num)
         # raw_data = srs.query('CAPTUREGET? 0 ' + byte_num)
         srs.write('SCNENBL 0')
         parameters = get_parameters(parameter_file)
