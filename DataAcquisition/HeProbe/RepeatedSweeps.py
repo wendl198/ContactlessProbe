@@ -248,15 +248,15 @@ while parameters[6] < 3:#main loop
             ax.set_xlim(left = 0, right = values['time'])
             ax.set_ylim(bottom = y1.min(), top = y1.max())
         else:
-            if len(parameters[6]) == 2:
+            if len(parameters[9]) == 2:
                 t0 = float(parameters[6][0])
                 if t0> times[-1]:
                     t0 = times[-1]-.1
-                t1 = float(parameters[6][1])
+                t1 = float(parameters[9][1])
                 inds = np.logical_and(times >= t0, times <= t1)
                 ax.set_xlim(left = t0,right = t1)
-            elif len(parameters[6]) == 1:
-                t0 = float(parameters[6][0])
+            elif len(parameters[9]) == 1:
+                t0 = float(parameters[9][0])
                 if t0> times[-1]:
                     t0 = times[-1]-.1
                 inds = np.logical_not(times<t0)
@@ -382,7 +382,7 @@ while parameters[6] < 3:#main loop
 
         parameters = get_parameters(parameter_file)
         f_center = p6.get_xdata()[np.argmin(p6.get_ydata()[1:])]
-        freqs = p4.get_xdata
+        freqs = np.array(p4.get_xdata())
         R_max  = np.max(p6.get_ydata()[np.logical_and(freqs>=f_center-parameters[4]/2, freqs<=f_center+parameters[4]/2)])
         j = sens_dict[sens_keys[np.logical_not(sens_keys<R_max)][0]]
         k = input_range_dict[input_range_keys[np.logical_not(input_range_keys<R_max)][0]]
@@ -469,11 +469,13 @@ while parameters[6] < 3:#main loop
             # fitting
             #######################
 
-            guesses1 = [f_center*1000,30,-.3,.26,0,0]
+            guesses1 = [new_data[5][np.argmin(new_data[4])],30,-.3,.26,0,0]
             pbounds1 = np.array([[min(new_data[5]),1,-1,-1,-1,-1],[max(new_data[5]),1e4,1,1,1,1]]) # [[Lower bounds],[upper bounds]]
             bestfit = optimize.curve_fit(full_lorenzian_fit_with_skew,new_data[5],new_data[4]*1000,guesses1, bounds=pbounds1)
             bestpars = bestfit[0]
 
+            f_center = bestpars[0]/1000
+            srs.write('FREQINT '+str(round((f_center-parameters[4]/2),0))+ ' KHZ')
             #######################
             # Plotting
             #######################
