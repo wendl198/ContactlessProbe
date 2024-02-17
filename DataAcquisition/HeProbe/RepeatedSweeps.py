@@ -120,7 +120,7 @@ timeconsts_keys.sort()
 
 
 # adjustable parameters
-pause_time = .85 #time in sec
+pause_time = .75 #time in sec
 time_con = 10e-3
 i = timeconsts_dict[timeconsts_keys[np.logical_not(timeconsts_keys<time_con)][0]]
 
@@ -129,7 +129,7 @@ set_command_list = [
     'SCNENBL OFF' #ready scan
     'SCNPAR F', #set freq scan
     'SCNLOG 0',#set linear scan with 0 log scan with 1
-    'SCNINRVL 2', #fastest freq scan time update resolution 0 =8ms 2=31ms
+    'SCNINRVL 1', #fastest freq scan time update resolution 0 =8ms 2=31ms, 1 = 16ms
     'ISRC 0', #read only A voltage
     'OFLT '+ str(i), #set time constant
     'CDSP 0, 0', #first data point is vx
@@ -160,6 +160,8 @@ time.sleep(0.05)
 ls.write('Range 1,0') #this turns the heater off
 time.sleep(0.05)
 ls.write('CSET 1,A,1,0,2')# configure loop
+time.sleep(0.05)
+ls.write('TLIMIT 500')
 
 
 fig = plt.figure(constrained_layout = True)
@@ -215,20 +217,16 @@ while parameters[6] < 3:#main loop
         # Update Parameters
         ########################
         parameters = get_parameters(parameter_file)
-        values['Temp'] = float(ls.query('KRDG? a'))
-        values['time'] = (time.perf_counter()-intitial_time)/60 #The time is now in minutes
-         #temp in K
-        vs = srs.query('SNAPD?').split(',') #this is [Vx, Vy, Vmag, freq]
 
+        values['time'] = (time.perf_counter()-intitial_time)/60 #The time is now in minutes
+        values['Temp'] = float(ls.query('KRDG? a')) #temp in K
+        vs = srs.query('SNAPD?').split(',') #this is [Vx, Vy, Vmag, freq]
         values['Vx'] = float(vs[0])
         values['Vy'] = float(vs[1])
         values['Vmag'] = float(vs[2])
         values['freq'] = float(vs[3])
 
-        ax.set_title('CurrTemp ='+str(values['Temp']),fontsize = 12)
-        ax.set_title('CurrFreq ='+str(values['freq']),fontsize = 12)
-        cx.set_title('Temp Setpoint ='+str(ls.query('SETP? 1'))[1:6],fontsize = 12)
-
+        
         ls.write('RAMP 1,0,'+ parameters[0])# Turns off ramping
         time.sleep(0.05)
         ls.write('SETP 1,'+ parameters[1])# intializes temperature for ramping
@@ -242,6 +240,11 @@ while parameters[6] < 3:#main loop
 
         # update data
         # while idle, want to only update temp v time,
+
+        ax.set_title('CurrTemp ='+str(values['Temp']),fontsize = 12)
+        bx.set_title('CurrFreq ='+str(values['freq']),fontsize = 12)
+        cx.set_title('Temp Setpoint ='+str(ls.query('SETP? 1'))[1:6],fontsize = 12)
+
         times = np.append(p1.get_xdata(),values['time'])
         y1 = np.append(p1.get_ydata(),values['Temp'])
 
@@ -275,8 +278,6 @@ while parameters[6] < 3:#main loop
 
         save_file.write(str(values['time']) + "\t" +  str(values['Temp']) + "\t" + str(values['Vx']) + "\t" + str(values['Vy'])+ '\t' + str(values['Vmag']) + '\t' + str(values['freq']) + '\t' + str(-1)+"\n")
         save_file.flush()#this will save the data without closing the file
-
-
         plt.pause(pause_time) #this displays the graph
 
     while parameters[6] == 1: #freq only ramp mode
@@ -298,6 +299,11 @@ while parameters[6] < 3:#main loop
         srs.write('SCNRUN') #start scan
         time.sleep(0.1)
         freqs = [values['freq']/1000]
+
+        bx.set_title('',fontsize = 12)
+
+        
+
         
         while srs.query('SCNSTATE?').strip() == '2':#scanning
             
@@ -329,6 +335,10 @@ while parameters[6] < 3:#main loop
             #######################
 
             # update data
+
+            ax.set_title('CurrTemp ='+str(values['Temp']),fontsize = 12)
+            cx.set_title('Temp Setpoint ='+str(ls.query('SETP? 1'))[1:6],fontsize = 12)
+
             times = np.append(p1.get_xdata(),values['time'])
             freqs.append(values['freq']/1000)
             y1 = np.append(p1.get_ydata(),values['Temp'])
@@ -422,6 +432,7 @@ while parameters[6] < 3:#main loop
 
             sweep_num += 1 #this will help identify sweeps from each other
             srs.write('SCNRUN') #start scan
+            sweep_str = str(sweep_num)
             while srs.query('SCNSTATE?').strip() == '2':#scanning
                 #######################
                 # Collect Data
@@ -431,19 +442,20 @@ while parameters[6] < 3:#main loop
                 # R = float(vs[2])*1000 #this is the Voltage Magnitude in mV
                 # j = sens_dict[sens_keys[np.logical_not(sens_keys<R)][0]]
                 # k = input_range_dict[input_range_keys[np.logical_not(input_range_keys<R)][0]]
+                
                 # srs.write('IRNG '+str(k))
                 # srs.write('SCAL '+str(j))
+
                 #######################
                 # Save Data
                 #######################
-                write_str = (str((time.perf_counter()-intitial_time)/60) + "\t" +  str(float(ls.query('KRDG? a'))) + "\t" + str(float(vs[0])) + "\t" + str(float(vs[1]))+ '\t' + str(float(vs[2])) + '\t' + str(float(vs[3])) + '\t' + str(sweep_num)+"\n")
+                write_str = '\t'.join((str((time.perf_counter()-intitial_time)/60),  str(float(ls.query('KRDG? a'))), vs[0], vs[1], vs[2], vs[3][:-1], sweep_str))+"\n"
                 
                 save_file.write(write_str)
                 save_file.flush()
                 buffer_file.write(write_str)
                 buffer_file.flush()
                 
-
             srs.write('SCNENBL 0')
             parameters = get_parameters(parameter_file)
 
@@ -463,7 +475,6 @@ while parameters[6] < 3:#main loop
                         new_data[i].append(float(dat))
             new_data= np.array(new_data)
 
-
             #######################
             # fitting
             #######################
@@ -480,8 +491,10 @@ while parameters[6] < 3:#main loop
             #######################
             # Plotting
             #######################
-
             #append time data
+            ax.set_title('CurrTemp ='+str(values['Temp']),fontsize = 12)
+            cx.set_title('Temp Setpoint ='+str(ls.query('SETP? 1'))[1:6],fontsize = 12)
+
             times = np.append(p1.get_xdata(),new_data[0])
             y1 = np.append(p1.get_ydata(),new_data[1])
             p1.set_xdata(times)
@@ -541,7 +554,7 @@ while parameters[6] < 3:#main loop
                     ax.set_xlim(left = 0, right = times[-1])
                 ax.set_ylim(bottom = y1[inds].min(), top = y1[inds].max())
 
-            plt.pause(0.05)#show plot
+            plt.pause(0.1)#show plot
 
         except Exception as error:
             parameters = get_parameters(parameter_file)
