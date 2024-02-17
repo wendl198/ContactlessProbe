@@ -26,7 +26,9 @@ def get_parameters(f):
                 [lines[7].split()[1],lines[7].split()[2],lines[7].split()[3]],#PID paratmeters
                 int(lines[8].split()[1]),#Autoscale boolean
                 lines[9],#time scale
-                int(lines[10].split()[1])) #ramp boolean
+                int(lines[10].split()[1]),#ramp boolean
+                int(lines[11].split()[1]), #3 part scan boolean
+                float(lines[12].split()[1])) #central scan width
     except Exception as error:
         #print(error)
         print('Error Reading Parameters: Edit parameters.txt or redownload it from https://github.com/wendl198/ContactlessProbe.')
@@ -187,6 +189,7 @@ fx.set_ylabel('Voltage Magnitude (mV)')
 
 T0 = float(ls.query('KRDG? a'))
 vx0,vy0,R0,f0 = srs.query('SNAPD?').split(',')
+intitial_time = time.perf_counter()#get intitial time
 p1, = ax.plot(0,T0,'ko-')
 p2, = bx.plot(0,0,'ro-')
 p3, = cx.plot(0,0,'bo-') 
@@ -201,11 +204,6 @@ current_datetime = datetime.now()
 formatted_datetime = current_datetime.strftime("%m/%d/%Y %H:%M:%S")
 save_file = open(os.path.join(save_path, input("Please type the file name here: ") + ".dat"), "a")
 save_file.write("Time (min)"   + "\t"+ 'Temp (K)'+"\t"+"Vx (V)" + "\t" + "Vy (V)"+ "\t" + "R (V)"+ "\t" + 'Freq (Hz)'+"\t"+ "Sweep Number: Current Time is "+formatted_datetime+'\n')
-intitial_time = time.perf_counter()#get intitial time
-
-
-# print('Sweeping at ' + str((freq_range[1]-freq_range[0])/scan_time*60) +' kHz/min')
-time.sleep(.05)
 
 
 #######################
@@ -451,34 +449,55 @@ while parameters[6] < 3:#main loop
                 ls.write('Range 1,0') #this turns the heater off
 
             buffer_file = open(os.path.join(save_path, "buffer.dat"), "w+")
-
-            intiate_scan(srs,f_center-parameters[4]/2,f_center+parameters[4]/2,parameters[5],parameters[3],False)
-
             sweep_num += 1 #this will help identify sweeps from each other
-            srs.write('SCNRUN') #start scan
             sweep_str = str(sweep_num)
-            while srs.query('SCNSTATE?').strip() == '2':#scanning
-                #######################
-                # Collect Data
-                #######################
-                #this is meant to be faster than other loops
-                vs = srs.query('SNAPD?').split(',') #this is [Vx, Vy, Vmag, freq]
-                # R = float(vs[2])*1000 #this is the Voltage Magnitude in mV
-                # j = sens_dict[sens_keys[np.logical_not(sens_keys<R)][0]]
-                # k = input_range_dict[input_range_keys[np.logical_not(input_range_keys<R)][0]]
-                
-                # srs.write('IRNG '+str(k))
-                # srs.write('SCAL '+str(j))
 
-                #######################
-                # Save Data
-                #######################
-                write_str = '\t'.join((str((time.perf_counter()-intitial_time)/60),  str(float(ls.query('KRDG? a'))), vs[0], vs[1], vs[2], vs[3][:-1], sweep_str))+"\n"
+            if parameters[11]:
+                intiate_scan(srs,f_center-parameters[4]/2,f_center-parameters[12]/2,parameters[5],parameters[3]/3,False)
+                srs.write('SCNRUN') #start scan
                 
-                save_file.write(write_str)
-                save_file.flush()
-                buffer_file.write(write_str)
-                buffer_file.flush()
+                while srs.query('SCNSTATE?').strip() == '2':#scanning
+                    vs = srs.query('SNAPD?').split(',') 
+                    write_str = '\t'.join((str((time.perf_counter()-intitial_time)/60),  str(float(ls.query('KRDG? a'))), vs[0], vs[1], vs[2], vs[3][:-1], sweep_str))+"\n"
+                    save_file.write(write_str)
+                    save_file.flush()
+                    buffer_file.write(write_str)
+                    buffer_file.flush()
+
+                intiate_scan(srs,f_center-parameters[12]/2,f_center+parameters[12]/2,parameters[5],parameters[3]/3,False)
+                srs.write('SCNRUN') #start scan
+                
+                while srs.query('SCNSTATE?').strip() == '2':#scanning
+                    vs = srs.query('SNAPD?').split(',') 
+                    write_str = '\t'.join((str((time.perf_counter()-intitial_time)/60),  str(float(ls.query('KRDG? a'))), vs[0], vs[1], vs[2], vs[3][:-1], sweep_str))+"\n"
+                    save_file.write(write_str)
+                    save_file.flush()
+                    buffer_file.write(write_str)
+                    buffer_file.flush()
+                
+                intiate_scan(srs,f_center+parameters[12]/2,f_center+parameters[4]/2,parameters[5],parameters[3]/3,False)
+                srs.write('SCNRUN') #start scan
+                
+                while srs.query('SCNSTATE?').strip() == '2':#scanning
+                    vs = srs.query('SNAPD?').split(',') 
+                    write_str = '\t'.join((str((time.perf_counter()-intitial_time)/60),  str(float(ls.query('KRDG? a'))), vs[0], vs[1], vs[2], vs[3][:-1], sweep_str))+"\n"
+                    save_file.write(write_str)
+                    save_file.flush()
+                    buffer_file.write(write_str)
+                    buffer_file.flush()
+
+            else:
+
+                intiate_scan(srs,f_center-parameters[4]/2,f_center+parameters[4]/2,parameters[5],parameters[3],False)
+                srs.write('SCNRUN') #start scan
+                
+                while srs.query('SCNSTATE?').strip() == '2':#scanning
+                    vs = srs.query('SNAPD?').split(',') 
+                    write_str = '\t'.join((str((time.perf_counter()-intitial_time)/60),  str(float(ls.query('KRDG? a'))), vs[0], vs[1], vs[2], vs[3][:-1], sweep_str))+"\n"
+                    save_file.write(write_str)
+                    save_file.flush()
+                    buffer_file.write(write_str)
+                    buffer_file.flush()
                 
             srs.write('SCNENBL 0')
             parameters = get_parameters(parameter_file)
