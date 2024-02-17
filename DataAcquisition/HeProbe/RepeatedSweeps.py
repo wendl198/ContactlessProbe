@@ -129,7 +129,7 @@ set_command_list = [
     'SCNENBL OFF' #ready scan
     'SCNPAR F', #set freq scan
     'SCNLOG 0',#set linear scan with 0 log scan with 1
-    'SCNINRVL 1', #fastest freq scan time update resolution 0 =8ms 2=31ms, 1 = 16ms
+    'SCNINRVL 2', #fastest freq scan time update resolution 0 =8ms 2=31ms
     'ISRC 0', #read only A voltage
     'OFLT '+ str(i), #set time constant
     'CDSP 0, 0', #first data point is vx
@@ -158,6 +158,8 @@ time.sleep(0.05)
 ls.write('SETP 1,'+ parameters[1]) #this is the starting temp for the ramp
 time.sleep(0.05)
 ls.write('Range 1,0') #this turns the heater off
+time.sleep(0.05)
+ls.write('CSET 1,A,1,0,2')# configure loop
 
 
 fig = plt.figure(constrained_layout = True)
@@ -213,10 +215,11 @@ while parameters[6] < 3:#main loop
         # Update Parameters
         ########################
         parameters = get_parameters(parameter_file)
-
+        values['Temp'] = float(ls.query('KRDG? a'))
         values['time'] = (time.perf_counter()-intitial_time)/60 #The time is now in minutes
-        values['Temp'] = float(ls.query('KRDG? a')) #temp in K
+         #temp in K
         vs = srs.query('SNAPD?').split(',') #this is [Vx, Vy, Vmag, freq]
+
         values['Vx'] = float(vs[0])
         values['Vy'] = float(vs[1])
         values['Vmag'] = float(vs[2])
@@ -249,7 +252,7 @@ while parameters[6] < 3:#main loop
             ax.set_ylim(bottom = y1.min(), top = y1.max())
         else:
             if len(parameters[9]) == 2:
-                t0 = float(parameters[6][0])
+                t0 = float(parameters[9][0])
                 if t0> times[-1]:
                     t0 = times[-1]-.1
                 t1 = float(parameters[9][1])
@@ -419,7 +422,6 @@ while parameters[6] < 3:#main loop
 
             sweep_num += 1 #this will help identify sweeps from each other
             srs.write('SCNRUN') #start scan
-            sweep_str = str(sweep_num)
             while srs.query('SCNSTATE?').strip() == '2':#scanning
                 #######################
                 # Collect Data
@@ -429,27 +431,23 @@ while parameters[6] < 3:#main loop
                 # R = float(vs[2])*1000 #this is the Voltage Magnitude in mV
                 # j = sens_dict[sens_keys[np.logical_not(sens_keys<R)][0]]
                 # k = input_range_dict[input_range_keys[np.logical_not(input_range_keys<R)][0]]
-                
                 # srs.write('IRNG '+str(k))
                 # srs.write('SCAL '+str(j))
-
                 #######################
                 # Save Data
                 #######################
-                write_str = '\t'.join((str((time.perf_counter()-intitial_time)/60),  str(float(ls.query('KRDG? a'))), vs[0], vs[1], vs[2], vs[3][:-1], sweep_str))+"\n"
+                write_str = (str((time.perf_counter()-intitial_time)/60) + "\t" +  str(float(ls.query('KRDG? a'))) + "\t" + str(float(vs[0])) + "\t" + str(float(vs[1]))+ '\t' + str(float(vs[2])) + '\t' + str(float(vs[3])) + '\t' + str(sweep_num)+"\n")
                 
                 save_file.write(write_str)
                 save_file.flush()
                 buffer_file.write(write_str)
                 buffer_file.flush()
-
-                # plt.pause(3*time_con)
                 
-            # raw_data = srs.query('CAPTUREGET? 0 ' + byte_num)
+
             srs.write('SCNENBL 0')
             parameters = get_parameters(parameter_file)
 
-            #this part can afford to be slower because it is called 100x less
+            #this part can afford to be slower because it is called 300x less
 
             #######################
             # Retrieve Data
@@ -469,13 +467,15 @@ while parameters[6] < 3:#main loop
             #######################
             # fitting
             #######################
+            plot_freqs = new_data[5]/1000
+            plot_vmags = new_data[4]*1000
 
-            guesses1 = [new_data[5][np.argmin(new_data[4])],30,-.3,.26,0,0]
-            pbounds1 = np.array([[min(new_data[5]),1,-1,-1,-1,-1],[max(new_data[5]),1e4,1,1,1,1]]) # [[Lower bounds],[upper bounds]]
-            bestfit = optimize.curve_fit(full_lorenzian_fit_with_skew,new_data[5],new_data[4]*1000,guesses1, bounds=pbounds1)
+            guesses1 = [plot_freqs[np.argmin(plot_vmags)],30,400,400,.1,-.4]
+            pbounds1 = np.array([[min(plot_freqs),1,-.5e3,0,-1,-1],[max(plot_freqs),200,.5e3,.5e3,1,1]]) # [[Lower bounds],[upper bounds]]
+            bestfit = optimize.curve_fit(full_lorenzian_fit_with_skew,plot_freqs,plot_vmags,guesses1, bounds=pbounds1)
             bestpars = bestfit[0]
 
-            f_center = bestpars[0]/1000
+            f_center = bestpars[0]
             srs.write('FREQINT '+str(round((f_center-parameters[4]/2),0))+ ' KHZ')
             #######################
             # Plotting
@@ -488,12 +488,12 @@ while parameters[6] < 3:#main loop
             p1.set_ydata(y1)
 
             #show voltage for previous scan
-            p4.set_xdata(new_data[5]/1000)
-            p5.set_xdata(new_data[5]/1000)
-            p6.set_xdata(new_data[5]/1000)
+            p4.set_xdata(plot_freqs)
+            p5.set_xdata(plot_freqs)
+            p6.set_xdata(plot_freqs)
             p4.set_ydata(1000*new_data[2])
             p5.set_ydata(1000*new_data[3])
-            p6.set_ydata(1000*new_data[4])
+            p6.set_ydata(plot_vmags)
 
             #Q factor and res freq data
             if sweep_num == 1:
@@ -513,12 +513,12 @@ while parameters[6] < 3:#main loop
             cx.set_xlim(left = y1.min(), right = y1.max())
             bx.set_ylim(bottom = np.min(p2.get_ydata()), top = np.max(p2.get_ydata()))
             cx.set_ylim(bottom = np.min(p3.get_ydata()), top = np.max(p3.get_ydata()))
-            dx.set_xlim(left = new_data[5][0]/1000, right = new_data[5][-1]/1000)
-            ex.set_xlim(left = new_data[5][0]/1000, right = new_data[5][-1]/1000)
-            fx.set_xlim(left = new_data[5][0]/1000, right = new_data[5][-1]/1000)
+            dx.set_xlim(left = plot_freqs[0], right = plot_freqs[-1])
+            ex.set_xlim(left = plot_freqs[0], right = plot_freqs[-1])
+            fx.set_xlim(left = plot_freqs[0], right = plot_freqs[-1])
             dx.set_ylim(bottom = 1000*np.min(new_data[2]), top = 1000*np.max(new_data[2]))
             ex.set_ylim(bottom = 1000*np.min(new_data[3]), top = 1000*np.max(new_data[3]))
-            fx.set_ylim(bottom = 1000*np.min(new_data[4]), top = 1000*np.max(new_data[4]))
+            fx.set_ylim(bottom = np.min(plot_vmags), top = np.max(plot_vmags))
             if parameters[8]:
                 ax.set_xlim(left = 0, right = times[-1])
                 ax.set_ylim(bottom = y1.min(), top = y1.max())
@@ -541,7 +541,7 @@ while parameters[6] < 3:#main loop
                     ax.set_xlim(left = 0, right = times[-1])
                 ax.set_ylim(bottom = y1[inds].min(), top = y1[inds].max())
 
-            plt.pause(0.1)#show plot
+            plt.pause(0.05)#show plot
 
         except Exception as error:
             parameters = get_parameters(parameter_file)
