@@ -25,7 +25,8 @@ def get_parameters(f):
                 int(lines[6].split()[1]),#RampingStatus
                 [lines[7].split()[1],lines[7].split()[2],lines[7].split()[3]],#PID paratmeters
                 int(lines[8].split()[1]),#Autoscale boolean
-                lines[9])#time scale
+                lines[9],#time scale
+                int(lines[10].split()[1])) #ramp boolean
     except Exception as error:
         #print(error)
         print('Error Reading Parameters: Edit parameters.txt or redownload it from https://github.com/wendl198/ContactlessProbe.')
@@ -226,12 +227,24 @@ while parameters[6] < 3:#main loop
         values['Vmag'] = float(vs[2])
         values['freq'] = float(vs[3])
 
-        
-        ls.write('RAMP 1,0,'+ parameters[0])# Turns off ramping
-        time.sleep(0.05)
-        ls.write('SETP 1,'+ parameters[1])# intializes temperature for ramping
-        time.sleep(0.1)
-        ls.write('Range 1,0') #this turns the heater off
+        #ramp control
+        if parameters[10]:#start/update ramp
+            ls.write('PID 1,'+ parameters[7][0]+','+ parameters[7][1]+',' + parameters[7][2])#this sets the setpoint to the final temp
+            time.sleep(0.05)
+            ls.write('Range 1,1') #this turns the heater to low
+            time.sleep(0.05)
+            if not(int(ls.query('RAMP? 1')[0])): #if ramp is off, start ramp
+                ls.write('RAMP 1,1,'+ parameters[0])
+                time.sleep(0.05)
+                ls.write('SETP 1,'+ parameters[2])#this sets the setpoint to the final temp
+            
+        else:#stop ramp
+            ls.write('RAMP 1,0,'+ parameters[0])# Turns off ramping
+            time.sleep(0.05)
+            ls.write('SETP 1,'+ parameters[1])# intializes temperature for ramping
+            time.sleep(0.1)
+            ls.write('Range 1,0') #this turns the heater off
+
         srs.write('SCNENBL 0')
 
         #######################
@@ -415,16 +428,27 @@ while parameters[6] < 3:#main loop
                 parameters = get_parameters(parameter_file)
                 time.sleep(.1)
                 raise Exception('f_center is not in range [0,4MHz]\nAttempting to refind f_center')
-        
+    
 
-            ls.write('RAMP 1,1,'+ parameters[0])
-            time.sleep(0.05)
-            ls.write('SETP 1,'+ parameters[2])#this sets the setpoint to the final temp
-            time.sleep(0.05)
-            ls.write('PID 1,'+ parameters[7][0]+','+ parameters[7][1]+',' + parameters[7][2])#this sets the setpoint to the final temp
-            time.sleep(0.05)
-            ls.write('Range 1,1') #this turns the heater to low
             parameters = get_parameters(parameter_file)
+
+            #ramp control
+            if parameters[10]:#start/update ramp
+                ls.write('PID 1,'+ parameters[7][0]+','+ parameters[7][1]+',' + parameters[7][2])#this sets the setpoint to the final temp
+                time.sleep(0.05)
+                ls.write('Range 1,1') #this turns the heater to low
+                time.sleep(0.05)
+                if not(int(ls.query('RAMP? 1')[0])): #if ramp is off, start ramp
+                    ls.write('RAMP 1,1,'+ parameters[0])
+                    time.sleep(0.05)
+                    ls.write('SETP 1,'+ parameters[2])#this sets the setpoint to the final temp
+                
+            else:#stop ramp
+                ls.write('RAMP 1,0,'+ parameters[0])# Turns off ramping
+                time.sleep(0.05)
+                ls.write('SETP 1,'+ parameters[1])# intializes temperature for ramping
+                time.sleep(0.1)
+                ls.write('Range 1,0') #this turns the heater off
 
             buffer_file = open(os.path.join(save_path, "buffer.dat"), "w+")
 
@@ -458,6 +482,24 @@ while parameters[6] < 3:#main loop
                 
             srs.write('SCNENBL 0')
             parameters = get_parameters(parameter_file)
+
+            #ramp control
+            if parameters[10]:#start/update ramp
+                ls.write('PID 1,'+ parameters[7][0]+','+ parameters[7][1]+',' + parameters[7][2])#this sets the setpoint to the final temp
+                time.sleep(0.05)
+                ls.write('Range 1,1') #this turns the heater to low
+                time.sleep(0.05)
+                if not(int(ls.query('RAMP? 1')[0])): #if ramp is off, start ramp
+                    ls.write('RAMP 1,1,'+ parameters[0])
+                    time.sleep(0.05)
+                    ls.write('SETP 1,'+ parameters[2])#this sets the setpoint to the final temp
+                
+            else:#stop ramp
+                ls.write('RAMP 1,0,'+ parameters[0])# Turns off ramping
+                time.sleep(0.05)
+                ls.write('SETP 1,'+ parameters[1])# intializes temperature for ramping
+                time.sleep(0.1)
+                ls.write('Range 1,0') #this turns the heater off
 
             #this part can afford to be slower because it is called 300x less
 
