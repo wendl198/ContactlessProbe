@@ -315,6 +315,8 @@ while parameters[6] < 3:#main loop
                 for i, dat in enumerate(data[:-1]):
                     new_data[i].append(float(dat))
         new_data= np.array(new_data)
+        plot_freqs = new_data[5]/1000
+        plot_vmags = new_data[4]*1000
         guesses1 = [plot_freqs[np.argmin(plot_vmags)],30,400,400,.1,-.4]
         pbounds1 = np.array([[min(plot_freqs),1,-.5e3,0,-1,-1],[max(plot_freqs),1e3,.5e3,.5e3,1,1]]) # [[Lower bounds],[upper bounds]]
         bestfit = optimize.curve_fit(full_lorenzian_fit_with_skew,plot_freqs,plot_vmags,guesses1, bounds=pbounds1)
