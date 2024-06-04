@@ -310,19 +310,16 @@ while parameters[6] < 3:#main loop
             data = line.split()
             plot_freqs[i] = float(data[5])/1000
             plot_vmags[i] = float(data[4])*1000
-        new_data= np.array(new_data)
         guesses1 = [plot_freqs[np.argmin(plot_vmags)],30,400,400,.1,-.4]
         pbounds1 = np.array([[min(plot_freqs),1,-.5e3,0,-1,-1],[max(plot_freqs),1e3,.5e3,.5e3,1,1]]) # [[Lower bounds],[upper bounds]]
         bestfit = optimize.curve_fit(full_lorenzian_fit_with_skew,plot_freqs,plot_vmags,guesses1, bounds=pbounds1)
         bestpars = bestfit[0]
         f_center = bestpars[0]
     
-        #start temp scan
-        if parameters[6] == 1: #allow for manual change of status
-            change_status(2,parameter_file)
-            parameters = get_parameters(parameter_file)
-            srs.write('SCNENBL 0')
-            print('Switching to Temp Ramp')
+        change_status(2,parameter_file)
+        parameters = get_parameters(parameter_file)
+        srs.write('SCNENBL 0')
+        print('Starting Sample Center')
 
     while parameters[6] == 2: #temp ramp mode
         try:
