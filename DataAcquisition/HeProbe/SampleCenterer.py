@@ -276,7 +276,7 @@ while parameters[6] < 3:#main loop
         parameters = get_parameters(parameter_file)
         freqs = np.array(freqs)        
         f_center = freqs[np.argmin(v_mags[1:])]
-        a = np.logical_and(freqs>=f_center-parameters[4]/2, freqs<=f_center+parameters[4]/2)
+        a = np.logical_and(freqs>=f_center-150, freqs<=f_center+150)
         nums = []
         for i, b in enumerate(a):
             if b:
@@ -289,12 +289,12 @@ while parameters[6] < 3:#main loop
 
         #refine f_center
         buffer_file = open(os.path.join(save_path, "buffer.dat"), "w+")
-        intiate_scan(srs,f_center-parameters[4]/2,f_center+parameters[4]/2,parameters[5],parameters[3],False)
+        intiate_scan(srs,f_center-150,f_center+150,parameters[5],15,False)
         srs.write('SCNRUN') #start scan
         
         while srs.query('SCNSTATE?').strip() == '2':#scanning
             vs = srs.query('SNAPD?').split(',') 
-            write_str = '\t'.join((str((time.perf_counter()-intitial_time)/60),  str(float(ls.query('KRDG? a'))), vs[0], vs[1], vs[2], vs[3][:-1], 0))+"\n"
+            write_str = '\t'.join((str((time.perf_counter()-intitial_time)/60),  str(float(ls.query('KRDG? a'))), vs[0], vs[1], vs[2], vs[3][:-1], str(0)))+"\n"
             buffer_file.write(write_str)
             buffer_file.flush()
                 
@@ -323,7 +323,7 @@ while parameters[6] < 3:#main loop
 
     while parameters[6] == 2: #temp ramp mode
         try:
-            if not(f_center-parameters[4]/2>=0 and f_center+parameters[4]/2<=4000):#check if the freq scan will be valid
+            if not(f_center-30>=0 and f_center+30<=4000):#check if the freq scan will be valid
                 change_status(1,parameter_file)
                 parameters = get_parameters(parameter_file)
                 time.sleep(.1)
@@ -354,44 +354,14 @@ while parameters[6] < 3:#main loop
             sweep_num += 1 #this will help identify sweeps from each other
             sweep_str = str(sweep_num)
 
-            if parameters[11]:
-                intiate_scan(srs,f_center-parameters[4]/2,f_center-parameters[12]/2,parameters[5],parameters[3]/3,False)
-                srs.write('SCNRUN') #start scan
-                
-                while srs.query('SCNSTATE?').strip() == '2':#scanning
-                    vs = srs.query('SNAPD?').split(',') 
-                    write_str = '\t'.join((str((time.perf_counter()-intitial_time)/60),  str(float(ls.query('KRDG? a'))), vs[0], vs[1], vs[2], vs[3][:-1], sweep_str))+"\n"
-                    buffer_file.write(write_str)
-                    buffer_file.flush()
-
-                intiate_scan(srs,f_center-parameters[12]/2,f_center+parameters[12]/2,parameters[5],parameters[3]/3,False)
-                srs.write('SCNRUN') #start scan
-                
-                while srs.query('SCNSTATE?').strip() == '2':#scanning
-                    vs = srs.query('SNAPD?').split(',') 
-                    write_str = '\t'.join((str((time.perf_counter()-intitial_time)/60),  str(float(ls.query('KRDG? a'))), vs[0], vs[1], vs[2], vs[3][:-1], sweep_str))+"\n"
-                    buffer_file.write(write_str)
-                    buffer_file.flush()
-                
-                intiate_scan(srs,f_center+parameters[12]/2,f_center+parameters[4]/2,parameters[5],parameters[3]/3,False)
-                srs.write('SCNRUN') #start scan
-                
-                while srs.query('SCNSTATE?').strip() == '2':#scanning
-                    vs = srs.query('SNAPD?').split(',') 
-                    write_str = '\t'.join((str((time.perf_counter()-intitial_time)/60),  str(float(ls.query('KRDG? a'))), vs[0], vs[1], vs[2], vs[3][:-1], sweep_str))+"\n"
-                    buffer_file.write(write_str)
-                    buffer_file.flush()
-
-            else:
-
-                intiate_scan(srs,f_center-parameters[4]/2,f_center+parameters[4]/2,parameters[5],parameters[3],False)
-                srs.write('SCNRUN') #start scan
-                
-                while srs.query('SCNSTATE?').strip() == '2':#scanning
-                    vs = srs.query('SNAPD?').split(',') 
-                    write_str = '\t'.join((str((time.perf_counter()-intitial_time)/60),  str(float(ls.query('KRDG? a'))), vs[0], vs[1], vs[2], vs[3][:-1], sweep_str))+"\n"
-                    buffer_file.write(write_str)
-                    buffer_file.flush()
+            intiate_scan(srs,f_center-20,f_center+20,parameters[5],5,False)
+            srs.write('SCNRUN') #start scan
+            
+            while srs.query('SCNSTATE?').strip() == '2':#scanning
+                vs = srs.query('SNAPD?').split(',') 
+                write_str = '\t'.join((str((time.perf_counter()-intitial_time)/60),  str(float(ls.query('KRDG? a'))), vs[0], vs[1], vs[2], vs[3][:-1], sweep_str))+"\n"
+                buffer_file.write(write_str)
+                buffer_file.flush()
                 
             srs.write('SCNENBL 0')
             parameters = get_parameters(parameter_file)
