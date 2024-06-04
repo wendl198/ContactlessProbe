@@ -188,6 +188,11 @@ p3, = cx.plot(0,0,'bo-')
 values = {}
 sweep_num = 0
 
+refine_scan_width = 300
+refine_scan_time = 15
+repeat_scan_width = 30
+repeat_scan_time = 5
+
 
 #######################
 # Main Loop
@@ -276,7 +281,7 @@ while parameters[6] < 3:#main loop
         parameters = get_parameters(parameter_file)
         freqs = np.array(freqs)        
         f_center = freqs[np.argmin(v_mags[1:])]
-        a = np.logical_and(freqs>=f_center-150, freqs<=f_center+150)
+        a = np.logical_and(freqs>=f_center-refine_scan_width/2, freqs<=f_center+refine_scan_width/2)
         nums = []
         for i, b in enumerate(a):
             if b:
@@ -289,7 +294,7 @@ while parameters[6] < 3:#main loop
 
         #refine f_center
         buffer_file = open(os.path.join(save_path, "buffer.dat"), "w+")
-        intiate_scan(srs,f_center-150,f_center+150,parameters[5],15,False)
+        intiate_scan(srs,f_center-refine_scan_width/2,f_center+refine_scan_width/2,parameters[5],refine_scan_time,False)
         srs.write('SCNRUN') #start scan
         
         while srs.query('SCNSTATE?').strip() == '2':#scanning
@@ -323,7 +328,7 @@ while parameters[6] < 3:#main loop
 
     while parameters[6] == 2: #temp ramp mode
         try:
-            if not(f_center-30>=0 and f_center+30<=4000):#check if the freq scan will be valid
+            if not(f_center-repeat_scan_width/2>=0 and f_center+repeat_scan_time/2<=4000):#check if the freq scan will be valid
                 change_status(1,parameter_file)
                 parameters = get_parameters(parameter_file)
                 time.sleep(.1)
@@ -354,7 +359,7 @@ while parameters[6] < 3:#main loop
             sweep_num += 1 #this will help identify sweeps from each other
             sweep_str = str(sweep_num)
 
-            intiate_scan(srs,f_center-20,f_center+20,parameters[5],5,False)
+            intiate_scan(srs,f_center-repeat_scan_width/2,f_center+repeat_scan_width/2,parameters[5],repeat_scan_time,False)
             srs.write('SCNRUN') #start scan
             
             while srs.query('SCNSTATE?').strip() == '2':#scanning
@@ -413,7 +418,7 @@ while parameters[6] < 3:#main loop
 
             f_center = bestpars[0]
             v_mag_min = full_lorenzian_fit_with_skew(f_center,*bestpars)
-            srs.write('FREQINT '+str(round((f_center-parameters[4]/2),0))+ ' KHZ')
+            srs.write('FREQINT '+str(round((f_center-repeat_scan_width/2),0))+ ' KHZ')
             #######################
             # Plotting
             #######################
