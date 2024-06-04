@@ -198,13 +198,12 @@ while parameters[6] < 3:#main loop
         srs.write('FREQINT 500 KHZ')
         intiate_scan(srs,500,4000,parameters[5],30,False)
         vs = srs.query('SNAPD?').split(',') #this is [Vx, Vy, Vmag, freq]
-        #print(vs)
         values['Vx'] = float(vs[0])
         values['Vy'] = float(vs[1])
         values['Vmag'] = float(vs[2])
         values['freq'] = float(vs[3])
+        time.sleep(1)#ensure stable before starting scan
         srs.write('SCNRUN') #start scan
-        time.sleep(0.1)
         freqs = [values['freq']/1000]
         v_mags = [values['Vmag']*1000]
 
@@ -288,9 +287,46 @@ while parameters[6] < 3:#main loop
         srs.write('IRNG '+str(k))
         srs.write('SCAL '+str(j))
 
-        change_status(2,parameter_file)
-        parameters = get_parameters(parameter_file)
-        srs.write('SCNENBL 0')
+        #refine f_center
+        buffer_file = open(os.path.join(save_path, "buffer.dat"), "w+")
+        if parameters[11]: #3 part scan
+            intiate_scan(srs,f_center-parameters[4]/2,f_center-parameters[12]/2,parameters[5],parameters[3]/3,False)
+            srs.write('SCNRUN') #start scan
+            
+            intiate_scan(srs,f_center-parameters[4]/2,f_center+parameters[4]/2,parameters[5],parameters[3],False)
+            srs.write('SCNRUN') #start scan
+            
+            while srs.query('SCNSTATE?').strip() == '2':#scanning
+                vs = srs.query('SNAPD?').split(',') 
+                write_str = '\t'.join((str((time.perf_counter()-intitial_time)/60),  str(float(ls.query('KRDG? a'))), vs[0], vs[1], vs[2], vs[3][:-1], sweep_str))+"\n"
+                buffer_file.write(write_str)
+                buffer_file.flush()
+                
+            srs.write('SCNENBL 0')
+            parameters = get_parameters(parameter_file)
+
+        buffer_file.seek(0) #resets pointer to top of the file
+        lines = buffer_file.readlines()
+        buffer_file.close()
+        new_data = [[],[],[],[],[],[]]#[time,temp,vx,vy,vmag,freq]
+        for line in lines:
+            data = line.split()
+            if int(data[-1]) == sweep_num:
+                for i, dat in enumerate(data[:-1]):
+                    new_data[i].append(float(dat))
+        new_data= np.array(new_data)
+        guesses1 = [plot_freqs[np.argmin(plot_vmags)],30,400,400,.1,-.4]
+        pbounds1 = np.array([[min(plot_freqs),1,-.5e3,0,-1,-1],[max(plot_freqs),1e3,.5e3,.5e3,1,1]]) # [[Lower bounds],[upper bounds]]
+        bestfit = optimize.curve_fit(full_lorenzian_fit_with_skew,plot_freqs,plot_vmags,guesses1, bounds=pbounds1)
+        bestpars = bestfit[0]
+        f_center = bestpars[0]
+    
+        #start temp scan
+        if parameters[6] == 1: #allow for manual change of status
+            change_status(2,parameter_file)
+            parameters = get_parameters(parameter_file)
+            srs.write('SCNENBL 0')
+            print('Switching to Temp Ramp')
 
     while parameters[6] == 2: #temp ramp mode
         try:
