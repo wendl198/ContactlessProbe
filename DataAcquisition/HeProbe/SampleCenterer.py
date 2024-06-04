@@ -308,15 +308,13 @@ while parameters[6] < 3:#main loop
         buffer_file.seek(0) #resets pointer to top of the file
         lines = buffer_file.readlines()
         buffer_file.close()
-        new_data = [[],[],[],[],[],[]]#[time,temp,vx,vy,vmag,freq]
-        for line in lines:
+        plot_freqs = np.zeros(len(lines))
+        plot_vmags = np.zeros(len(lines))
+        for i, line in enumerate(lines):
             data = line.split()
-            if int(data[-1]) == sweep_num:
-                for i, dat in enumerate(data[:-1]):
-                    new_data[i].append(float(dat))
+            plot_freqs[i] = float(data[5])/1000
+            plot_vmags[i] = float(data[4])*1000
         new_data= np.array(new_data)
-        plot_freqs = new_data[5]/1000
-        plot_vmags = new_data[4]*1000
         guesses1 = [plot_freqs[np.argmin(plot_vmags)],30,400,400,.1,-.4]
         pbounds1 = np.array([[min(plot_freqs),1,-.5e3,0,-1,-1],[max(plot_freqs),1e3,.5e3,.5e3,1,1]]) # [[Lower bounds],[upper bounds]]
         bestfit = optimize.curve_fit(full_lorenzian_fit_with_skew,plot_freqs,plot_vmags,guesses1, bounds=pbounds1)
