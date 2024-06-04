@@ -169,17 +169,21 @@ ls.write('TLIMIT 500')
 
 
 fig = plt.figure(constrained_layout = True)
-ax = fig.add_subplot(2, 1, 1)
-bx = fig.add_subplot(2, 1, 2)
+ax = fig.add_subplot(3, 1, 1)
+bx = fig.add_subplot(3, 1, 2)
+cx = fig.add_subplot(3, 1, 3)
 ax.set_xlabel('Time (min)')
 bx.set_xlabel('Sweep Num')
+cx.set_xlabel('Sweep Num')
 ax.set_ylabel('Temperature (K)')
 bx.set_ylabel('Resonance Frequency (kHz)')
+cx.set_ylabel('Min Voltage Magnitude (mV)')
 
 T0 = float(ls.query('KRDG? a'))
 intitial_time = time.perf_counter()#get intitial time
 p1, = ax.plot(0,T0,'ko-')
 p2, = bx.plot(0,0,'ro-')
+p3, = cx.plot(0,0,'bo-')
 
 values = {}
 sweep_num = 0
@@ -271,17 +275,22 @@ while parameters[6] < 3:#main loop
             plt.pause(0.031)
 
         parameters = get_parameters(parameter_file)
+        freqs = np.array(freqs)        
         f_center = freqs[np.argmin(v_mags[1:])]
-        R_max  = np.max(v_mags[np.logical_and(freqs>=f_center-parameters[4]/2, freqs<=f_center+parameters[4]/2)])
+        a = np.logical_and(freqs>=f_center-parameters[4]/2, freqs<=f_center+parameters[4]/2)
+        nums = []
+        for i, b in enumerate(a):
+            if b:
+                nums.append(v_mags[i])
+        R_max  = np.max(nums)
         j = sens_dict[sens_keys[np.logical_not(sens_keys<R_max)][0]]
         k = input_range_dict[input_range_keys[np.logical_not(input_range_keys<R_max)][0]]
         srs.write('IRNG '+str(k))
         srs.write('SCAL '+str(j))
-        #start temp scan
-        if parameters[6] == 1: #allow for manual change of status
-            change_status(2,parameter_file)
-            parameters = get_parameters(parameter_file)
-            srs.write('SCNENBL 0')
+
+        change_status(2,parameter_file)
+        parameters = get_parameters(parameter_file)
+        srs.write('SCNENBL 0')
 
     while parameters[6] == 2: #temp ramp mode
         try:
@@ -399,11 +408,12 @@ while parameters[6] < 3:#main loop
             plot_vmags = new_data[4]*1000
 
             guesses1 = [plot_freqs[np.argmin(plot_vmags)],30,400,400,.1,-.4]
-            pbounds1 = np.array([[min(plot_freqs),1,-.5e3,0,-1,-1],[max(plot_freqs),200,.5e3,.5e3,1,1]]) # [[Lower bounds],[upper bounds]]
+            pbounds1 = np.array([[min(plot_freqs),1,-.5e3,0,-1,-1],[max(plot_freqs),1e3,.5e3,.5e3,1,1]]) # [[Lower bounds],[upper bounds]]
             bestfit = optimize.curve_fit(full_lorenzian_fit_with_skew,plot_freqs,plot_vmags,guesses1, bounds=pbounds1)
             bestpars = bestfit[0]
 
             f_center = bestpars[0]
+            v_mag_min = full_lorenzian_fit_with_skew(f_center,*bestpars)
             srs.write('FREQINT '+str(round((f_center-parameters[4]/2),0))+ ' KHZ')
             #######################
             # Plotting
@@ -421,14 +431,20 @@ while parameters[6] < 3:#main loop
             if sweep_num == 1:
                 p2.set_xdata([sweep_num])
                 p2.set_ydata([bestpars[0]])
+                p3.set_xdata([sweep_num])
+                p3.set_ydata([v_mag_min])
             else:
                 p2.set_xdata(np.append(p2.get_xdata(),sweep_num))
                 p2.set_ydata(np.append(p2.get_ydata(),bestpars[0]))
+                p3.set_xdata(np.append(p3.get_xdata(),sweep_num))
+                p3.set_ydata(np.append(p3.get_ydata(),v_mag_min))
             
 
             #update limits
-            bx.set_xlim(left = y1.min(), right = y1.max())
+            bx.set_xlim(left = 1, right = sweep_num)
             bx.set_ylim(bottom = np.min(p2.get_ydata()), top = np.max(p2.get_ydata()))
+            cx.set_xlim(left = 1, right = sweep_num)
+            cx.set_ylim(bottom = np.min(p3.get_ydata()), top = np.max(p3.get_ydata()))
             if parameters[8]:
                 ax.set_xlim(left = 0, right = times[-1])
                 ax.set_ylim(bottom = y1.min(), top = y1.max())
@@ -451,7 +467,7 @@ while parameters[6] < 3:#main loop
                     ax.set_xlim(left = 0, right = times[-1])
                 ax.set_ylim(bottom = y1[inds].min(), top = y1[inds].max())
 
-            plt.pause(0.1)#show plot
+            plt.pause(0.5)#show plot
 
         except Exception as error:
             parameters = get_parameters(parameter_file)

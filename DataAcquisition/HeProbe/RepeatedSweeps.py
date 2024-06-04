@@ -224,7 +224,6 @@ while parameters[6] < 3:#main loop
         values['Vy'] = float(vs[1])
         values['Vmag'] = float(vs[2])
         values['freq'] = float(vs[3])
-
         #ramp control
         if parameters[10]:#start/update ramp
             ls.write('PID 1,'+ parameters[7][0]+','+ parameters[7][1]+',' + parameters[7][2])#this sets the setpoint to the final temp
@@ -253,7 +252,7 @@ while parameters[6] < 3:#main loop
         # while idle, want to only update temp v time,
 
         ax.set_title('CurrTemp ='+str(values['Temp']),fontsize = 12)
-        bx.set_title('CurrFreq ='+str(values['freq']),fontsize = 12)
+        bx.set_title('CurrFreq ='+str(round(values['freq']/1000,1))+'kHz',fontsize = 12)
         cx.set_title('Temp Setpoint ='+str(ls.query('SETP? 1'))[1:6],fontsize = 12)
 
         times = np.append(p1.get_xdata(),values['time'])
@@ -405,7 +404,7 @@ while parameters[6] < 3:#main loop
             plt.pause(0.031)
 
         parameters = get_parameters(parameter_file)
-        f_center = p6.get_xdata()[np.argmin(p6.get_ydata()[1:])]
+        f_center = p6.get_xdata()[np.argmin(p6.get_ydata()[2:])+1]
         freqs = np.array(p4.get_xdata())
         R_max  = np.max(p6.get_ydata()[np.logical_and(freqs>=f_center-parameters[4]/2, freqs<=f_center+parameters[4]/2)])
         j = sens_dict[sens_keys[np.logical_not(sens_keys<R_max)][0]]
@@ -543,7 +542,7 @@ while parameters[6] < 3:#main loop
             plot_vmags = new_data[4]*1000
 
             guesses1 = [plot_freqs[np.argmin(plot_vmags)],30,400,400,.1,-.4]
-            pbounds1 = np.array([[min(plot_freqs),1,-.5e3,0,-1,-1],[max(plot_freqs),200,.5e3,.5e3,1,1]]) # [[Lower bounds],[upper bounds]]
+            pbounds1 = np.array([[min(plot_freqs),1,-.5e3,0,-1,-1],[max(plot_freqs),1e3,.5e3,.5e3,1,1]]) # [[Lower bounds],[upper bounds]]
             bestfit = optimize.curve_fit(full_lorenzian_fit_with_skew,plot_freqs,plot_vmags,guesses1, bounds=pbounds1)
             bestpars = bestfit[0]
 

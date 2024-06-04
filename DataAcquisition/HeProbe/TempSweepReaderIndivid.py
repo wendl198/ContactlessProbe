@@ -10,13 +10,13 @@ def simple_lorenzian_fit(fs, f0,Q,Smax,A1):
     return A1 + Smax/np.sqrt(1+4*(Q*(fs/f0-1))**2)
 
 
-#read in data
-
 # this allows you to input the file name, or its index in the list of files. 
 # It also works for any read_path in read_paths
+
 read_paths = [
-    'C:\\Users\\mpms\\Desktop\\Contactless Probe\\RawData\\HeProbe',
-    'C:/Users/blake/Documents/VSCode/Python/Greven/RawData/HeProbe/'
+    'C:\\Users\\Contactless\\Desktop\\Contactless Probe\\RawData\\HeProbe',
+    'C:/Users/blake/Documents/VSCode/Python/Greven/RawData/HeProbe/',
+    'C:\\Users\\Contactless\\Desktop\\Contactless Probe\\RawData\\'
     ]
 for read_path in read_paths:
     try:
@@ -25,8 +25,10 @@ for read_path in read_paths:
             print('Available files:')
             for index, item in enumerate(filenames):
                 print(f"{item}: {index}")
-            print()
-            input_str = input("Enter file's name or index: ") 
+            print('Skip path with neter')
+            input_str = input("Enter file's name or index: ")
+            if len(input_str) == 0:
+                a = ''+1#error
             try:
                 input_str = filenames[int(input_str)]
             except:
@@ -37,15 +39,22 @@ for read_path in read_paths:
         all_data = np.genfromtxt(file_path, delimiter='\t')
     except:
         pass
-
-
-times = np.array(all_data[1:,0])
-temps = np.array(all_data[1:,1])
-vxs = np.array(all_data[1:,2])*1000 #mV
-vys = np.array(all_data[1:,3])*1000 #mV
-vmags = np.array(all_data[1:,4])*1000 #mV
-freqs = np.array(all_data[1:,5])/1000 #k4Hz
-sweep_nums = np.array(all_data[1:,6])
+try:#with temp and sweep num
+    times = np.array(all_data[1:,0])
+    temps = np.array(all_data[1:,1])
+    vxs = np.array(all_data[1:,2])*1000 #mV
+    vys = np.array(all_data[1:,3])*1000 #mV
+    vmags = np.array(all_data[1:,4])*1000 #mV
+    freqs = np.array(all_data[1:,5])/1000 #kHz
+    sweep_nums = np.array(all_data[1:,6])
+except:#single sweep data reading
+    times = np.array(all_data[1:,0])
+    temps = np.zeros(len(times))
+    vxs = np.array(all_data[1:,1])*1000 #mV
+    vys = np.array(all_data[1:,2])*1000 #mV
+    vmags = np.array(all_data[1:,3])*1000 #mV
+    freqs = np.array(all_data[1:,4])/1000 #kHz
+    sweep_nums = np.ones(len(times))
 
 stopped = False
 while not(stopped):
@@ -69,15 +78,37 @@ while not(stopped):
 
         
 
-        fig1 = plt.figure(constrained_layout = True)
-        ax = fig1.add_subplot(1, 1, 1)
-        ax.set_xlabel('Frequency (kHz)')
-        ax.set_ylabel('Vmag (mV)')
-        
-        ax.set_title('Frequency Sweeps Number '+str(ind))
-        ax.plot(plot_freqs,plot_vmags,label = 'Data')
-        ax.plot(plot_freqs,full_lorenzian_fit_with_skew(plot_freqs,*bestpars),label = 'Fit')
-        ax.legend()
-        plt.show()
+        full_show = True
+        if full_show:
+            fig1 = plt.figure(constrained_layout = True)
+            ax = fig1.add_subplot(3, 1, 1)
+            bx = fig1.add_subplot(3, 1, 2)
+            cx = fig1.add_subplot(3, 1, 3)
+            ax.set_xlabel('Frequency (kHz)')
+            bx.set_xlabel('Frequency (kHz)')
+            cx.set_xlabel('Frequency (kHz)')
+            ax.set_ylabel('Vx (mV)')
+            bx.set_ylabel('Vy (mV)')
+            cx.set_ylabel('Vmag (mV)')
+            
+            ax.set_title('Frequency Sweeps Number '+str(ind))
+            ax.plot(plot_freqs,plot_vxs)
+            bx.plot(plot_freqs,plot_vys)
+            cx.plot(plot_freqs,plot_vmags,label = 'Data')
+            cx.plot(plot_freqs,full_lorenzian_fit_with_skew(plot_freqs,*bestpars),label = 'Fit')
+            cx.legend()
+            plt.show()
+
+        else:
+            fig1 = plt.figure(constrained_layout = True)
+            ax = fig1.add_subplot(1, 1, 1)
+            ax.set_xlabel('Frequency (kHz)')
+            ax.set_ylabel('Vmag (mV)')
+            
+            ax.set_title('Frequency Sweeps Number '+str(ind))
+            ax.plot(plot_freqs,plot_vmags,label = 'Data')
+            ax.plot(plot_freqs,full_lorenzian_fit_with_skew(plot_freqs,*bestpars),label = 'Fit')
+            ax.legend()
+            plt.show()
     except:
         stopped = True
