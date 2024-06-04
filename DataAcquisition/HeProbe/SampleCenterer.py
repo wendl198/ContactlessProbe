@@ -294,7 +294,7 @@ while parameters[6] < 3:#main loop
         
         while srs.query('SCNSTATE?').strip() == '2':#scanning
             vs = srs.query('SNAPD?').split(',') 
-            write_str = '\t'.join((str((time.perf_counter()-intitial_time)/60),  str(float(ls.query('KRDG? a'))), vs[0], vs[1], vs[2], vs[3][:-1], sweep_str))+"\n"
+            write_str = '\t'.join((str((time.perf_counter()-intitial_time)/60),  str(float(ls.query('KRDG? a'))), vs[0], vs[1], vs[2], vs[3][:-1], 0))+"\n"
             buffer_file.write(write_str)
             buffer_file.flush()
                 
