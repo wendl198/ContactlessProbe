@@ -200,10 +200,11 @@ p6, = fx.plot(f1,1000*float(R0),'mo-') #plot in mV
 values = {}
 sweep_num = 0
 
-current_datetime = datetime.now()
-formatted_datetime = current_datetime.strftime("%m/%d/%Y %H:%M:%S")
 save_file = open(os.path.join(save_path, input("Please type the file name here: ") + ".dat"), "a")
-save_file.write("Time (min)"   + "\t"+ 'Temp (K)'+"\t"+"Vx (V)" + "\t" + "Vy (V)"+ "\t" + "R (V)"+ "\t" + 'Freq (Hz)'+"\t"+ "Sweep Number: Current Time is "+formatted_datetime+'\n')
+if save_file.tell() == 0:
+    current_datetime = datetime.now()
+    formatted_datetime = current_datetime.strftime("%m/%d/%Y %H:%M:%S")
+    save_file.write("Time (min)"   + "\t"+ 'Temp (K)'+"\t"+"Vx (V)" + "\t" + "Vy (V)"+ "\t" + "R (V)"+ "\t" + 'Freq (Hz)'+"\t"+ "Sweep Number: Current Time is "+formatted_datetime+'\n')
 
 
 #######################
@@ -411,11 +412,8 @@ while parameters[6] < 3:#main loop
         srs.write('SCNRUN') #start scan
         
         while srs.query('SCNSTATE?').strip() == '2':#scanning
-            vs = srs.query('SNAPD?').split(',') 
-            write_str = '\t'.join((str((time.perf_counter()-intitial_time)/60),  str(float(ls.query('KRDG? a'))), vs[0], vs[1], vs[2], vs[3][:-1], str(0)))+"\n"
-            save_file.write(write_str)
-            save_file.flush()
-            buffer_file.write(write_str)
+            vs = srs.query('SNAPD?').split(',')
+            buffer_file.write('\t'.join((str((time.perf_counter()-intitial_time)/60),  str(float(ls.query('KRDG? a'))), vs[0], vs[1], vs[2], vs[3][:-1], str(0)))+"\n")
             buffer_file.flush()
                 
         srs.write('SCNENBL 0')
@@ -426,15 +424,17 @@ while parameters[6] < 3:#main loop
         buffer_file.close()
         new_data = [[],[],[],[],[],[]]#[time,temp,vx,vy,vmag,freq]
         for line in lines:
+            save_file.write(line)
             data = line.split()
             if int(data[-1]) == sweep_num:
                 for i, dat in enumerate(data[:-1]):
                     new_data[i].append(float(dat))
+        save_file.flush()
         new_data= np.array(new_data)
         plot_freqs = new_data[5]/1000
         plot_vmags = new_data[4]*1000
-        guesses1 = [plot_freqs[np.argmin(plot_vmags)],30,400,400,.1,-.4]
-        pbounds1 = np.array([[min(plot_freqs),1,-.5e3,0,-1,-1],[max(plot_freqs),1e3,.5e3,.5e3,1,1]]) # [[Lower bounds],[upper bounds]]
+        guesses1 = [plot_freqs[np.argmin(plot_vmags)],186,-2.35e3,5e2,-3.3e-2,1.2]
+        pbounds1 = np.array([[500,1,-.5e3,0,-1,-1],[4000,1e3,.5e3,.5e3,1,1]]) # [[Lower bounds],[upper bounds]]
         bestfit = optimize.curve_fit(full_lorenzian_fit_with_skew,plot_freqs,plot_vmags,guesses1, bounds=pbounds1)
         bestpars = bestfit[0]
         f_center = bestpars[0]
@@ -484,11 +484,8 @@ while parameters[6] < 3:#main loop
                 srs.write('SCNRUN') #start scan
                 
                 while srs.query('SCNSTATE?').strip() == '2':#scanning
-                    vs = srs.query('SNAPD?').split(',') 
-                    write_str = '\t'.join((str((time.perf_counter()-intitial_time)/60),  str(float(ls.query('KRDG? a'))), vs[0], vs[1], vs[2], vs[3][:-1], sweep_str))+"\n"
-                    save_file.write(write_str)
-                    save_file.flush()
-                    buffer_file.write(write_str)
+                    vs = srs.query('SNAPD?').split(',')
+                    buffer_file.write('\t'.join((str((time.perf_counter()-intitial_time)/60),  str(float(ls.query('KRDG? a'))), vs[0], vs[1], vs[2], vs[3][:-1], sweep_str))+"\n")
                     buffer_file.flush()
 
                 intiate_scan(srs,f_center-parameters[12]/2,f_center+parameters[12]/2,parameters[5],parameters[3]/3,False)
@@ -496,10 +493,7 @@ while parameters[6] < 3:#main loop
                 
                 while srs.query('SCNSTATE?').strip() == '2':#scanning
                     vs = srs.query('SNAPD?').split(',') 
-                    write_str = '\t'.join((str((time.perf_counter()-intitial_time)/60),  str(float(ls.query('KRDG? a'))), vs[0], vs[1], vs[2], vs[3][:-1], sweep_str))+"\n"
-                    save_file.write(write_str)
-                    save_file.flush()
-                    buffer_file.write(write_str)
+                    buffer_file.write('\t'.join((str((time.perf_counter()-intitial_time)/60),  str(float(ls.query('KRDG? a'))), vs[0], vs[1], vs[2], vs[3][:-1], sweep_str))+"\n")
                     buffer_file.flush()
                 
                 intiate_scan(srs,f_center+parameters[12]/2,f_center+parameters[4]/2,parameters[5],parameters[3]/3,False)
@@ -507,10 +501,7 @@ while parameters[6] < 3:#main loop
                 
                 while srs.query('SCNSTATE?').strip() == '2':#scanning
                     vs = srs.query('SNAPD?').split(',') 
-                    write_str = '\t'.join((str((time.perf_counter()-intitial_time)/60),  str(float(ls.query('KRDG? a'))), vs[0], vs[1], vs[2], vs[3][:-1], sweep_str))+"\n"
-                    save_file.write(write_str)
-                    save_file.flush()
-                    buffer_file.write(write_str)
+                    buffer_file.write('\t'.join((str((time.perf_counter()-intitial_time)/60),  str(float(ls.query('KRDG? a'))), vs[0], vs[1], vs[2], vs[3][:-1], sweep_str))+"\n")
                     buffer_file.flush()
 
             else:#single scan
@@ -520,10 +511,7 @@ while parameters[6] < 3:#main loop
                 
                 while srs.query('SCNSTATE?').strip() == '2':#scanning
                     vs = srs.query('SNAPD?').split(',') 
-                    write_str = '\t'.join((str((time.perf_counter()-intitial_time)/60),  str(float(ls.query('KRDG? a'))), vs[0], vs[1], vs[2], vs[3][:-1], sweep_str))+"\n"
-                    save_file.write(write_str)
-                    save_file.flush()
-                    buffer_file.write(write_str)
+                    buffer_file.write('\t'.join((str((time.perf_counter()-intitial_time)/60),  str(float(ls.query('KRDG? a'))), vs[0], vs[1], vs[2], vs[3][:-1], sweep_str))+"\n")
                     buffer_file.flush()
                 
             srs.write('SCNENBL 0')
@@ -547,7 +535,7 @@ while parameters[6] < 3:#main loop
                 time.sleep(0.1)
                 ls.write('Range 1,0') #this turns the heater off
 
-            #this part can afford to be slower because it is called 300x less
+            #this part can afford to be slower because it is called 400x less
 
             #######################
             # Retrieve Data
@@ -557,10 +545,12 @@ while parameters[6] < 3:#main loop
             buffer_file.close()
             new_data = [[],[],[],[],[],[]]#[time,temp,vx,vy,vmag,freq]
             for line in lines:
+                save_file.write(line)
                 data = line.split()
                 if int(data[-1]) == sweep_num:
                     for i, dat in enumerate(data[:-1]):
                         new_data[i].append(float(dat))
+            save_file.flush()
             new_data= np.array(new_data)
 
             #######################
@@ -569,13 +559,12 @@ while parameters[6] < 3:#main loop
             plot_freqs = new_data[5]/1000
             plot_vmags = new_data[4]*1000
 
-            guesses1 = [plot_freqs[np.argmin(plot_vmags)],30,400,400,.1,-.4]
-            pbounds1 = np.array([[min(plot_freqs),1,-.5e3,0,-1,-1],[max(plot_freqs),1e3,.5e3,.5e3,1,1]]) # [[Lower bounds],[upper bounds]]
+            guesses1 = plot_freqs[np.argmin(plot_vmags)]
             bestfit = optimize.curve_fit(full_lorenzian_fit_with_skew,plot_freqs,plot_vmags,guesses1, bounds=pbounds1)
             bestpars = bestfit[0]
 
             f_center = bestpars[0]
-            srs.write('FREQINT '+str(round((f_center-parameters[4]/2),0))+ ' KHZ')
+            srs.write('FREQINT '+str(round((f_center-parameters[4]/2),0))+ ' KHZ')#set frequency for next scan
             #######################
             # Plotting
             #######################
@@ -673,6 +662,7 @@ srs.close()
 #######################
 save_file.close()
 parameter_file.close()
+#reset parameters to default
 with open(default_path) as f:
     lines = f.readlines()
 file1 = open(parameter_path,"w")#write mode
