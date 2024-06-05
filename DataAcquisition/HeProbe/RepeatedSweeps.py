@@ -196,6 +196,7 @@ p3, = cx.plot(0,0,'bo-')
 p4, = dx.plot(f1 := float(f0)/1000,1000*float(vx0),'go-') #plot in mV
 p5, = ex.plot(f1,1000*float(vy0),'co-') #plot in mV
 p6, = fx.plot(f1,1000*float(R0),'mo-') #plot in mV
+p7, = fx.plot(f1,1000*float(R0),c='black')
 
 values = {}
 sweep_num = 0
@@ -434,7 +435,7 @@ while parameters[6] < 3:#main loop
         plot_freqs = new_data[5]/1000
         plot_vmags = new_data[4]*1000
         guesses1 = [plot_freqs[np.argmin(plot_vmags)],186,-2.35e3,5e2,-3.3e-2,1.2]
-        pbounds1 = np.array([[500,1,-.5e3,0,-1,-1],[4000,1e3,.5e3,.5e3,1,1]]) # [[Lower bounds],[upper bounds]]
+        pbounds1 = np.array([[500,1,-1e4,0,-1,-10],[4000,1e3,1e4,2e3,1,10]]) # [[Lower bounds],[upper bounds]]
         bestfit = optimize.curve_fit(full_lorenzian_fit_with_skew,plot_freqs,plot_vmags,guesses1, bounds=pbounds1)
         bestpars = bestfit[0]
         f_center = bestpars[0]
@@ -581,9 +582,11 @@ while parameters[6] < 3:#main loop
             p4.set_xdata(plot_freqs)
             p5.set_xdata(plot_freqs)
             p6.set_xdata(plot_freqs)
+            p7.set_xdata(plot_freqs)
             p4.set_ydata(1000*new_data[2])
             p5.set_ydata(1000*new_data[3])
             p6.set_ydata(plot_vmags)
+            p7.set_ydata(full_lorenzian_fit_with_skew(plot_freqs,*bestpars))
 
             #Q factor and res freq data
             if sweep_num == 1:
