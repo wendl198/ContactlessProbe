@@ -212,6 +212,11 @@ srs = rm.open_resource('GPIB0::13::INSTR')#this is the lock-in
 time.sleep(0.1)
 srs.write('SCNENBL 0')
 
+save_file = open(os.path.join(save_path, input("Please type the file name here: ") + ".dat"), "a")
+if save_file.tell() == 0:
+    current_datetime = datetime.now()
+    formatted_datetime = current_datetime.strftime("%m/%d/%Y %H:%M:%S")
+    save_file.write("Time (min)"   + "\t"+ 'Temp (K)'+"\t"+"Vx (V)" + "\t" + "Vy (V)"+ "\t" + "R (V)"+ "\t" + 'Freq (Hz)'+"\t"+ "Sweep Number: Current Time is "+formatted_datetime+'\n')
 
 fig = plt.figure(constrained_layout = True)
 ax = fig.add_subplot(2, 3, 1)
@@ -246,14 +251,6 @@ p7, = fx.plot(f1,1000*float(R0),c='black')
 
 values = {}
 sweep_num = 0
-
-save_file = open(os.path.join(save_path, input("Please type the file name here: ") + ".dat"), "a")
-if save_file.tell() == 0:
-    current_datetime = datetime.now()
-    formatted_datetime = current_datetime.strftime("%m/%d/%Y %H:%M:%S")
-    save_file.write("Time (min)"   + "\t"+ 'Temp (K)'+"\t"+"Vx (V)" + "\t" + "Vy (V)"+ "\t" + "R (V)"+ "\t" + 'Freq (Hz)'+"\t"+ "Sweep Number: Current Time is "+formatted_datetime+'\n')
-
-
 #######################
 # Main Loop
 #######################
