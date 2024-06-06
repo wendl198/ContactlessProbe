@@ -37,17 +37,17 @@ def get_parameters(f):
         return get_parameters(f) #this will recursively tunnel deeper until the problem is fixed. It will not record data
     #May be smart to install a better fail safe, but this is probably good enough for most users.
 
-def change_status(new_status,f):
-    f.seek(0)
-    lines = f.readlines()
-    lines[6] = 'Status: ' + str(new_status) +' 0=idle,1=intialscan,2=repeatedscan,>2=end\n'
-    file1 = open(parameter_path,"w")#write mode
-    file1.writelines(lines)
-    file1.close()
-    #status is an integer [0,2]
-    # No Ramp = 0
-    # StartRamp = 1
-    # Stop = 2
+# def change_status(new_status,f):
+#     f.seek(0)
+#     lines = f.readlines()
+#     lines[6] = 'Status: ' + str(new_status) +' 0=idle,1=repeatedscan,>1=end\n'
+#     file1 = open(parameter_path,"w")#write mode
+#     file1.writelines(lines)
+#     file1.close()
+#     #status is an integer [0,2]
+#     # No Ramp = 0
+#     # StartRamp = 1
+#     # Stop = 2
 
 def intiate_scan(instrument,start_freq,end_freq,signal_amp,scan_time,repeat,wait_time = 0.01):
     for com in set_command_list:
@@ -256,7 +256,7 @@ if save_file.tell() == 0:
 # Main Loop
 #######################
 
-while parameters[6] < 3:#main loop
+while parameters[6] < 2:#main loop
     while parameters[6] == 0: #idlely collecting data
         ########################
         # Update Parameters
@@ -324,173 +324,14 @@ while parameters[6] < 3:#main loop
         save_file.flush()#this will save the data without closing the file
         plt.pause(pause_time) #this displays the graph
 
-    while parameters[6] == 1: #freq only ramp mode
-        srs.write('FREQINT 500 KHZ')
-        
-        intiate_scan(srs,500,4000,parameters[5],30,False)
-        vs = srs.query('SNAPD?').split(',') #this is [Vx, Vy, Vmag, freq]
-        values['Vx'] = float(vs[0])
-        values['Vy'] = float(vs[1])
-        values['Vmag'] = float(vs[2])
-        values['freq'] = float(vs[3])
-        p4.set_xdata([values['freq']])
-        p5.set_xdata([values['freq']])
-        p6.set_xdata([values['freq']])
-        p4.set_ydata([values['Vx']])
-        p5.set_ydata([values['Vy']])
-        p6.set_ydata([values['Vmag']])
-
-        time.sleep(1)#ensure stable before starting scan
-        srs.write('SCNRUN') #start scan
-        freqs = [values['freq']/1000]
-        bx.set_title('',fontsize = 12)
-
-        while srs.query('SCNSTATE?').strip() == '2':#scanning
-            vs = srs.query('SNAPD?').split(',') #this is [Vx, Vy, Vmag, freq]
-            values['Vx'] = float(vs[0])
-            values['Vy'] = float(vs[1])
-            values['Vmag'] = float(vs[2])
-            values['freq'] = float(vs[3]) 
-            R = values['Vmag']*1000 #this is the Voltage Magnitude in mV
-            sens_inds = np.logical_not(sens_keys<R)
-            range_inds = np.logical_not(input_range_keys<R)
-            if np.all(sens_inds == False):
-                j = sens_dict[sens_keys[-1]]
-            else:
-                j = sens_dict[sens_keys[np.logical_not(sens_keys<R)][0]]
-            if np.all(sens_inds == False):
-                k = input_range_dict[input_range_keys[-1]]
-            else:
-                k = input_range_dict[input_range_keys[np.logical_not(input_range_keys<R)][0]]
-            
-            srs.write('IRNG '+str(k))
-            srs.write('SCAL '+str(j))
-            values['time'] = (time.perf_counter()-intitial_time)/60 #The time is now in minutes
-            values['Temp'] = float(ls.query('KRDG? a')) #temp in K
-
-            #######################
-            # Plotting
-            #######################
-
-            # update data
-            ax.set_title('CurrTemp ='+str(values['Temp']),fontsize = 12)
-            cx.set_title('Temp Setpoint ='+str(ls.query('SETP? 1'))[1:6],fontsize = 12)
-
-            times = np.append(p1.get_xdata(),values['time'])
-            freqs.append(values['freq']/1000)
-            y1 = np.append(p1.get_ydata(),values['Temp'])
-            y4 = np.append(p4.get_ydata(),1000*values['Vx']) # plot the voltages in mV
-            y5 = np.append(p5.get_ydata(),1000*values['Vy'])
-            y6 = np.append(p6.get_ydata(),1000*values['Vmag'])
-            
-            p1.set_xdata(times)
-            p4.set_xdata(freqs)
-            p5.set_xdata(freqs)
-            p6.set_xdata(freqs)
-            p1.set_ydata(y1)
-            p4.set_ydata(y4)
-            p5.set_ydata(y5)
-            p6.set_ydata(y6)
-
-            #update limits 
-            dx.set_xlim(left = 500, right = values['freq']/1000)
-            ex.set_xlim(left = 500, right = values['freq']/1000)
-            fx.set_xlim(left = 500, right = values['freq']/1000)
-            dx.set_ylim(bottom = y4.min(), top = y4.max())
-            ex.set_ylim(bottom = y5.min(), top = y5.max())
-            fx.set_ylim(bottom = y6.min(), top = y6.max())
-            if parameters[8]:
-                ax.set_xlim(left = 0, right = values['time'])
-                ax.set_ylim(bottom = y1.min(), top = y1.max())
-            else:
-                if len(parameters[9]) == 2:
-                    t0 = float(parameters[9][0])
-                    if t0> times[-1]:
-                        t0 = times[-1]-.1
-                    t1 = float(parameters[9][1])
-                    inds = np.logical_and(times >= t0, times <= t1)
-                    ax.set_xlim(left = t0,right = t1)
-                elif len(parameters[9]) == 1:
-                    t0 = float(parameters[9][0])
-                    if t0> times[-1]:
-                        t0 = times[-1]-.1
-                    inds = np.logical_not(times<t0)
-                    ax.set_xlim(left = t0,right = values['time'])
-                else:
-                    inds = np.logical_not(times<0)
-                    ax.set_xlim(left = 0, right = values['time'])
-                ax.set_ylim(bottom = y1[inds].min(), top = y1[inds].max())
-
-            #######################
-            # Save Data
-            #######################
-
-            save_file.write(str(values['time']) + "\t" +  str(values['Temp']) + "\t" + str(values['Vx']) + "\t" + str(values['Vy'])+ '\t' + str(values['Vmag']) + '\t' + str(values['freq']) + '\t' + str(0)+"\n")
-            save_file.flush()
-
-            plt.pause(0.031)
-
-        parameters = get_parameters(parameter_file)
-        f_center = p6.get_xdata()[np.argmin(p6.get_ydata()[1:])]
-        freqs = np.array(p4.get_xdata())
-        R_max  = np.max(p6.get_ydata()[np.logical_and(freqs>=f_center-parameters[4]/2, freqs<=f_center+parameters[4]/2)])
-        j = sens_dict[sens_keys[np.logical_not(sens_keys<R_max)][0]]
-        k = input_range_dict[input_range_keys[np.logical_not(input_range_keys<R_max)][0]]
-        srs.write('IRNG '+str(k))
-        srs.write('SCAL '+str(j))
-
-        #refine f_center
-        buffer_file = open(os.path.join(save_path, "buffer.dat"), "w+")
-        intiate_scan(srs,f_center-parameters[4]/2,f_center+parameters[4]/2,parameters[5],parameters[3],False)
-        srs.write('SCNRUN') #start scan
-        
-        while srs.query('SCNSTATE?').strip() == '2':#scanning
-            vs = srs.query('SNAPD?').split(',')
-            buffer_file.write('\t'.join((str((time.perf_counter()-intitial_time)/60),  str(float(ls.query('KRDG? a'))), vs[0], vs[1], vs[2], vs[3][:-1], str(0)))+"\n")
-            buffer_file.flush()
-                
-        srs.write('SCNENBL 0')
-        parameters = get_parameters(parameter_file)
-
-        buffer_file.seek(0) #resets pointer to top of the file
-        lines = buffer_file.readlines()
-        buffer_file.close()
-        new_data = [[],[],[],[],[],[]]#[time,temp,vx,vy,vmag,freq]
-        for line in lines:
-            save_file.write(line)
-            data = line.split()
-            if int(data[-1]) == sweep_num:
-                for i, dat in enumerate(data[:-1]):
-                    new_data[i].append(float(dat))
-        save_file.flush()
-        new_data= np.array(new_data)
-        plot_freqs = new_data[5]/1000
-        plot_vmags = new_data[4]*1000
-        guesses1 = [plot_freqs[np.argmin(plot_vmags)],186,-2.35e3,5e2,-3.3e-2,1.2]
-        pbounds1 = np.array([[500,1,-1e4,0,-1,-10],[4000,1e3,1e4,2e3,1,10]]) # [[Lower bounds],[upper bounds]]
-        bestfit = optimize.curve_fit(full_lorenzian_fit_with_skew,plot_freqs,plot_vmags,guesses1, bounds=pbounds1)
-        bestpars = bestfit[0]
-        f_center = bestpars[0]
-    
-        #start temp scan
-        if parameters[6] == 1: #allow for manual change of status
-            change_status(2,parameter_file)
-            parameters = get_parameters(parameter_file)
-            srs.write('SCNENBL 0')
-            print('Switching to Temp Ramp')
-
-    while parameters[6] == 2: #temp ramp mode
+    while parameters[6] == 1: #temp ramp mode
         try:
-            t0 = time.perf_counter()
-            if not(f_center-parameters[4]/2>=0 and f_center+parameters[4]/2<=4000):#check if the freq scan will be valid
-                change_status(1,parameter_file)
-                parameters = get_parameters(parameter_file)
-                time.sleep(.1)
+            # t0 = time.perf_counter()
+            if not(f_center-parameters[4]/2>=500 and f_center+parameters[4]/2<=4000):#check if the freq scan will be valid
                 raise Exception('f_center is not in range [0,4MHz]\nAttempting to refind f_center')
     
 
             parameters = get_parameters(parameter_file)
-
             #ramp control
             if parameters[10]:#start/update ramp
                 ls.write('PID 1,'+ parameters[7][0]+','+ parameters[7][1]+',' + parameters[7][2])#this sets the setpoint to the final temp
@@ -512,7 +353,7 @@ while parameters[6] < 3:#main loop
             buffer_file = open(os.path.join(save_path, "buffer.dat"), "w+")
             sweep_num += 1 #this will help identify sweeps from each other
             sweep_str = str(sweep_num)
-            t1 = time.perf_counter()
+            # t1 = time.perf_counter()
             if parameters[11]: #3 part scan
                 intiate_scan(srs,f_center-parameters[4]/2,f_center-parameters[12]/2,parameters[5],parameters[3]/3,False)
                 srs.write('SCNRUN') #start scan
@@ -552,7 +393,7 @@ while parameters[6] < 3:#main loop
                     buffer_file.flush()
                     #td = time.perf_counter()
                     #print(tb-ta,tc-tb)
-            t2 = time.perf_counter()    
+            # t2 = time.perf_counter()    
             srs.write('SCNENBL 0')
             parameters = get_parameters(parameter_file)
 
@@ -563,7 +404,7 @@ while parameters[6] < 3:#main loop
                 ls.stopramp(parameters)
 
             #this part can afford to be slower because it is called 400x less
-            t3 = time.perf_counter()
+            # t3 = time.perf_counter()
             #######################
             # Retrieve Data
             #######################
@@ -579,7 +420,7 @@ while parameters[6] < 3:#main loop
                         new_data[i].append(float(dat))
             save_file.flush()
             new_data= np.array(new_data)
-            t4 = time.perf_counter()
+            # t4 = time.perf_counter()
             #######################
             # fitting
             #######################
@@ -596,7 +437,7 @@ while parameters[6] < 3:#main loop
             # Plotting
             #######################
             #append time data
-            t5 = time.perf_counter()
+            # t5 = time.perf_counter()
             ax.set_title('CurrTemp ='+str(new_data[-1][1]),fontsize = 12)
             cx.set_title('Temp Setpoint ='+str(ls.query('SETP? 1'))[1:6],fontsize = 12)
 
@@ -660,17 +501,158 @@ while parameters[6] < 3:#main loop
                     inds = np.logical_not(times<0)
                     ax.set_xlim(left = 0, right = times[-1])
                 ax.set_ylim(bottom = y1[inds].min(), top = y1[inds].max())
-            t6 = time.perf_counter()
+            # t6 = time.perf_counter()
             plt.pause(1)#show plot
-            t7 = time.perf_counter()
-            print(t1-t0,t2-t1,t3-t2,t4-t3,t5-t4,t6-t5,t7-t6)
-        except Exception as error:
+            # t7 = time.perf_counter()
+            # print(t1-t0,t2-t1,t3-t2,t4-t3,t5-t4,t6-t5,t7-t6)
+        except NameError:# find resonance frequency
+            srs.write('FREQINT 500 KHZ')
             parameters = get_parameters(parameter_file)
-            print('Error: '+str(error))
-            traceback.print_exc()
-            if parameters[6] == 2:
-                change_status(1,parameter_file)
-                parameters = get_parameters(parameter_file)
+            intiate_scan(srs,500,4000,parameters[5],30,False)
+            vs = srs.query('SNAPD?').split(',') #this is [Vx, Vy, Vmag, freq]
+            values['Vx'] = float(vs[0])
+            values['Vy'] = float(vs[1])
+            values['Vmag'] = float(vs[2])
+            values['freq'] = float(vs[3])
+            p4.set_xdata([values['freq']])
+            p5.set_xdata([values['freq']])
+            p6.set_xdata([values['freq']])
+            p4.set_ydata([values['Vx']])
+            p5.set_ydata([values['Vy']])
+            p6.set_ydata([values['Vmag']])
+
+            time.sleep(1)#ensure stable before starting scan
+            srs.write('SCNRUN') #start scan
+            freqs = [values['freq']/1000]
+            bx.set_title('',fontsize = 12)
+
+            while srs.query('SCNSTATE?').strip() == '2':#scanning
+                vs = srs.query('SNAPD?').split(',') #this is [Vx, Vy, Vmag, freq]
+                values['Vx'] = float(vs[0])
+                values['Vy'] = float(vs[1])
+                values['Vmag'] = float(vs[2])
+                values['freq'] = float(vs[3]) 
+                R = values['Vmag']*1000 #this is the Voltage Magnitude in mV
+                sens_inds = np.logical_not(sens_keys<R)
+                range_inds = np.logical_not(input_range_keys<R)
+                if np.all(sens_inds == False):
+                    j = sens_dict[sens_keys[-1]]
+                else:
+                    j = sens_dict[sens_keys[np.logical_not(sens_keys<R)][0]]
+                if np.all(sens_inds == False):
+                    k = input_range_dict[input_range_keys[-1]]
+                else:
+                    k = input_range_dict[input_range_keys[np.logical_not(input_range_keys<R)][0]]
+                
+                srs.write('IRNG '+str(k))
+                srs.write('SCAL '+str(j))
+                values['time'] = (time.perf_counter()-intitial_time)/60 #The time is now in minutes
+                values['Temp'] = float(ls.query('KRDG? a')) #temp in K
+
+                #######################
+                # Plotting
+                #######################
+
+                # update data
+                ax.set_title('CurrTemp ='+str(values['Temp']),fontsize = 12)
+                cx.set_title('Temp Setpoint ='+str(ls.query('SETP? 1'))[1:6],fontsize = 12)
+
+                times = np.append(p1.get_xdata(),values['time'])
+                freqs.append(values['freq']/1000)
+                y1 = np.append(p1.get_ydata(),values['Temp'])
+                y4 = np.append(p4.get_ydata(),1000*values['Vx']) # plot the voltages in mV
+                y5 = np.append(p5.get_ydata(),1000*values['Vy'])
+                y6 = np.append(p6.get_ydata(),1000*values['Vmag'])
+                
+                p1.set_xdata(times)
+                p4.set_xdata(freqs)
+                p5.set_xdata(freqs)
+                p6.set_xdata(freqs)
+                p1.set_ydata(y1)
+                p4.set_ydata(y4)
+                p5.set_ydata(y5)
+                p6.set_ydata(y6)
+
+                #update limits 
+                dx.set_xlim(left = 500, right = values['freq']/1000)
+                ex.set_xlim(left = 500, right = values['freq']/1000)
+                fx.set_xlim(left = 500, right = values['freq']/1000)
+                dx.set_ylim(bottom = y4.min(), top = y4.max())
+                ex.set_ylim(bottom = y5.min(), top = y5.max())
+                fx.set_ylim(bottom = y6.min(), top = y6.max())
+                if parameters[8]:
+                    ax.set_xlim(left = 0, right = values['time'])
+                    ax.set_ylim(bottom = y1.min(), top = y1.max())
+                else:
+                    if len(parameters[9]) == 2:
+                        t0 = float(parameters[9][0])
+                        if t0> times[-1]:
+                            t0 = times[-1]-.1
+                        t1 = float(parameters[9][1])
+                        inds = np.logical_and(times >= t0, times <= t1)
+                        ax.set_xlim(left = t0,right = t1)
+                    elif len(parameters[9]) == 1:
+                        t0 = float(parameters[9][0])
+                        if t0> times[-1]:
+                            t0 = times[-1]-.1
+                        inds = np.logical_not(times<t0)
+                        ax.set_xlim(left = t0,right = values['time'])
+                    else:
+                        inds = np.logical_not(times<0)
+                        ax.set_xlim(left = 0, right = values['time'])
+                    ax.set_ylim(bottom = y1[inds].min(), top = y1[inds].max())
+
+                #######################
+                # Save Data
+                #######################
+
+                save_file.write(str(values['time']) + "\t" +  str(values['Temp']) + "\t" + str(values['Vx']) + "\t" + str(values['Vy'])+ '\t' + str(values['Vmag']) + '\t' + str(values['freq']) + '\t' + str(0)+"\n")
+                save_file.flush()
+
+                plt.pause(0.031)
+
+            parameters = get_parameters(parameter_file)
+            f_center = p6.get_xdata()[np.argmin(p6.get_ydata()[1:])]
+            freqs = np.array(p4.get_xdata())
+            R_max  = np.max(p6.get_ydata()[np.logical_and(freqs>=f_center-parameters[4]/2, freqs<=f_center+parameters[4]/2)])
+            j = sens_dict[sens_keys[np.logical_not(sens_keys<R_max)][0]]
+            k = input_range_dict[input_range_keys[np.logical_not(input_range_keys<R_max)][0]]
+            srs.write('IRNG '+str(k))
+            srs.write('SCAL '+str(j))
+
+            #refine f_center
+            buffer_file = open(os.path.join(save_path, "buffer.dat"), "w+")
+            intiate_scan(srs,f_center-parameters[4]/2,f_center+parameters[4]/2,parameters[5],parameters[3],False)
+            srs.write('SCNRUN') #start scan
+            
+            while srs.query('SCNSTATE?').strip() == '2':#scanning
+                vs = srs.query('SNAPD?').split(',')
+                buffer_file.write('\t'.join((str((time.perf_counter()-intitial_time)/60),  str(float(ls.query('KRDG? a'))), vs[0], vs[1], vs[2], vs[3][:-1], str(0)))+"\n")
+                buffer_file.flush()
+                    
+            srs.write('SCNENBL 0')
+            parameters = get_parameters(parameter_file)
+
+            buffer_file.seek(0) #resets pointer to top of the file
+            lines = buffer_file.readlines()
+            buffer_file.close()
+            new_data = [[],[],[],[],[],[]]#[time,temp,vx,vy,vmag,freq]
+            for line in lines:
+                save_file.write(line)
+                data = line.split()
+                if int(data[-1]) == sweep_num:
+                    for i, dat in enumerate(data[:-1]):
+                        new_data[i].append(float(dat))
+            save_file.flush()
+            new_data= np.array(new_data)
+            plot_freqs = new_data[5]/1000
+            plot_vmags = new_data[4]*1000
+            guesses1 = [plot_freqs[np.argmin(plot_vmags)],186,-2.35e3,5e2,-3.3e-2,1.2]
+            pbounds1 = np.array([[500,1,-1e4,0,-1,-10],[4000,1e3,1e4,2e3,1,10]]) # [[Lower bounds],[upper bounds]]
+            bestfit = optimize.curve_fit(full_lorenzian_fit_with_skew,plot_freqs,plot_vmags,guesses1, bounds=pbounds1)
+            bestpars = bestfit[0]
+            f_center = bestpars[0]
+            print('Switching to Temp Ramp')
 
         
 
