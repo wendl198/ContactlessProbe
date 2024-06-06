@@ -147,8 +147,13 @@ parameter_path = 'C:\\Users\\Contactless\\Desktop\\Contactless Probe\\HeProbe\\H
 default_path = 'C:\\Users\\Contactless\\Desktop\\Contactless Probe\\HeProbe\\HeProbeDefaultParameters.txt'
 
 rm = pyvisa.ResourceManager()
-ls = rm.open_resource('GPIB0::16::INSTR')#this is the lake shore temp controller
-time.sleep(0.1)
+try:
+    ls = rm.open_resource('GPIB0::16::INSTR')#this is the lake shore temp controller
+    time.sleep(0.1)
+    ls.write('RAMP 1,0,'+ parameters[0]) #the ramping is intially off
+except:
+    ls = rm.open_resource('GPIB0::9::INSTR')#this is the lake shore temp controller
+    time.sleep(0.1)
 srs = rm.open_resource('GPIB0::13::INSTR')#this is the lock-in
 time.sleep(0.1)
 srs.write('SCNENBL 0')
@@ -190,12 +195,12 @@ fx.set_ylabel('Voltage Magnitude (mV)')
 T0 = float(ls.query('KRDG? a'))
 vx0,vy0,R0,f0 = srs.query('SNAPD?').split(',')
 intitial_time = time.perf_counter()#get intitial time
-p1, = ax.plot(0,T0,'ko-')
-p2, = bx.plot(0,0,'ro-')
-p3, = cx.plot(0,0,'bo-') 
-p4, = dx.plot(f1 := float(f0)/1000,1000*float(vx0),'go-') #plot in mV
-p5, = ex.plot(f1,1000*float(vy0),'co-') #plot in mV
-p6, = fx.plot(f1,1000*float(R0),'mo-') #plot in mV
+p1, = ax.plot(0,T0,'ko-',markersize = 4)
+p2, = bx.plot(0,0,'ro-',markersize = 4)
+p3, = cx.plot(0,0,'bo-',markersize = 4) 
+p4, = dx.plot(f1 := float(f0)/1000,1000*float(vx0),'go-',markersize = 4) #plot in mV
+p5, = ex.plot(f1,1000*float(vy0),'co-',markersize = 4) #plot in mV
+p6, = fx.plot(f1,1000*float(R0),'mo-',markersize = 4) #plot in mV
 p7, = fx.plot(f1,1000*float(R0),c='black')
 
 values = {}
@@ -449,6 +454,7 @@ while parameters[6] < 3:#main loop
 
     while parameters[6] == 2: #temp ramp mode
         try:
+            t0 = time.perf_counter()
             if not(f_center-parameters[4]/2>=0 and f_center+parameters[4]/2<=4000):#check if the freq scan will be valid
                 change_status(1,parameter_file)
                 parameters = get_parameters(parameter_file)
@@ -479,7 +485,7 @@ while parameters[6] < 3:#main loop
             buffer_file = open(os.path.join(save_path, "buffer.dat"), "w+")
             sweep_num += 1 #this will help identify sweeps from each other
             sweep_str = str(sweep_num)
-
+            t1 = time.perf_counter()
             if parameters[11]: #3 part scan
                 intiate_scan(srs,f_center-parameters[4]/2,f_center-parameters[12]/2,parameters[5],parameters[3]/3,False)
                 srs.write('SCNRUN') #start scan
@@ -511,10 +517,15 @@ while parameters[6] < 3:#main loop
                 srs.write('SCNRUN') #start scan
                 
                 while srs.query('SCNSTATE?').strip() == '2':#scanning
-                    vs = srs.query('SNAPD?').split(',') 
+                    #ta = time.perf_counter()
+                    vs = srs.query('SNAPD?').split(',')
+                    #tb = time.perf_counter()
                     buffer_file.write('\t'.join((str((time.perf_counter()-intitial_time)/60),  str(float(ls.query('KRDG? a'))), vs[0], vs[1], vs[2], vs[3][:-1], sweep_str))+"\n")
+                    #tc = time.perf_counter()
                     buffer_file.flush()
-                
+                    #td = time.perf_counter()
+                    #print(tb-ta,tc-tb)
+            t2 = time.perf_counter()    
             srs.write('SCNENBL 0')
             parameters = get_parameters(parameter_file)
 
@@ -537,7 +548,7 @@ while parameters[6] < 3:#main loop
                 ls.write('Range 1,0') #this turns the heater off
 
             #this part can afford to be slower because it is called 400x less
-
+            t3 = time.perf_counter()
             #######################
             # Retrieve Data
             #######################
@@ -553,7 +564,7 @@ while parameters[6] < 3:#main loop
                         new_data[i].append(float(dat))
             save_file.flush()
             new_data= np.array(new_data)
-
+            t4 = time.perf_counter()
             #######################
             # fitting
             #######################
@@ -570,6 +581,7 @@ while parameters[6] < 3:#main loop
             # Plotting
             #######################
             #append time data
+            t5 = time.perf_counter()
             ax.set_title('CurrTemp ='+str(new_data[-1][1]),fontsize = 12)
             cx.set_title('Temp Setpoint ='+str(ls.query('SETP? 1'))[1:6],fontsize = 12)
 
@@ -633,9 +645,10 @@ while parameters[6] < 3:#main loop
                     inds = np.logical_not(times<0)
                     ax.set_xlim(left = 0, right = times[-1])
                 ax.set_ylim(bottom = y1[inds].min(), top = y1[inds].max())
-
-            plt.pause(0.1)#show plot
-
+            t6 = time.perf_counter()
+            plt.pause(1)#show plot
+            t7 = time.perf_counter()
+            print(t1-t0,t2-t1,t3-t2,t4-t3,t5-t4,t6-t5,t7-t6)
         except Exception as error:
             parameters = get_parameters(parameter_file)
             print('Error: '+str(error))
