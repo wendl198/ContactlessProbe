@@ -146,21 +146,25 @@ save_path = 'C:\\Users\\Contactless\\Desktop\\Contactless Probe\\RawData\\HeProb
 parameter_path = 'C:\\Users\\Contactless\\Desktop\\Contactless Probe\\HeProbe\\HeProbeParameters.txt'
 default_path = 'C:\\Users\\Contactless\\Desktop\\Contactless Probe\\HeProbe\\HeProbeDefaultParameters.txt'
 
+
+parameter_file = open(parameter_path, 'r')
+parameters = get_parameters(parameter_file)
+
 rm = pyvisa.ResourceManager()
 try:
     ls = rm.open_resource('GPIB0::16::INSTR')#this is the lake shore temp controller
     time.sleep(0.1)
     ls.write('RAMP 1,0,'+ parameters[0]) #the ramping is intially off
+    print(ls.query('*IDN?'))
 except:
     ls = rm.open_resource('GPIB0::9::INSTR')#this is the lake shore temp controller
     time.sleep(0.1)
+    print(ls.query('*IDN?'))
 srs = rm.open_resource('GPIB0::13::INSTR')#this is the lock-in
 time.sleep(0.1)
 srs.write('SCNENBL 0')
 
 #set intial lakeshore parameters
-parameter_file = open(parameter_path, 'r')
-parameters = get_parameters(parameter_file)
 ls.write('RAMP 1,0,'+ parameters[0]) #the ramping is intially off
 time.sleep(0.05)
 ls.write('SETP 1,'+ parameters[1]) #this is the starting temp for the ramp
