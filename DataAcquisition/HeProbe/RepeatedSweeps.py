@@ -79,7 +79,6 @@ class TempController:
         self.instra = rm.open_resource('GPIB0::'+str(GPIBport)+'::INSTR')
         self.waittime = waittime
         self.modelnum = self.instra.query('*IDN?').split(',')[1][-3:]
-        print(self.modelnum)
 
         self.write('RAMP 1,0,'+ parameters[0]) #the ramping is intially off
         self.write('SETP 1,'+ parameters[1]) #this is the starting temp for the ramp
@@ -328,7 +327,8 @@ while parameters[6] < 2:#main loop
         try:
             # t0 = time.perf_counter()
             if not(f_center-parameters[4]/2>=500 and f_center+parameters[4]/2<=4000):#check if the freq scan will be valid
-                raise Exception('f_center is not in range [0,4MHz]\nAttempting to refind f_center')
+                print('Resonance frequency out of bounds. Attempting to readjust')
+                raise NameError
     
 
             parameters = get_parameters(parameter_file)
