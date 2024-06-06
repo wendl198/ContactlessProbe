@@ -124,6 +124,9 @@ class TempController:
         ls.write('SETP 1,'+ parameters[1])# intializes temperature for ramping
         ls.write('Range 1,0') #this turns the heater off
 
+    def close(self):
+        self.instra.close()
+
 sens_dict = {1000:0,
             500:1,
             200:2,
