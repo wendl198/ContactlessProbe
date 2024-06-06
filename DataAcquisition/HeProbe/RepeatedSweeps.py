@@ -74,6 +74,56 @@ def intiate_scan(instrument,start_freq,end_freq,signal_amp,scan_time,repeat,wait
 def full_lorenzian_fit_with_skew(fs, f0,Q,Smax,A1,A2,A3):#fs is the data, f0 is the resonance freq
     return A1 + A2*fs + (Smax+A3*fs)/np.sqrt(1+4*(Q*(fs/f0-1))**2)#this is eq 10 from Measurement of resonant frequency and quality factor of microwave resonators: Comparison of methods Paul J. Petersan; Steven M. Anlage
 
+class TempController:
+    def __init__(self,GPIBport,parameters,max_power = 16, waittime = 0.05):
+        self.instra = rm.open_resource('GPIB0::'+str(GPIBport)+'::INSTR')
+        self.waittime = waittime
+        self.modelnum = self.instra.query('*IDN?').split(',')[1][-3:]
+        print(self.modelnum)
+
+        self.write('RAMP 1,0,'+ parameters[0]) #the ramping is intially off
+        self.write('SETP 1,'+ parameters[1]) #this is the starting temp for the ramp
+        self.write('Range 1,0') #this turns the heater off
+        self.write('TLIMIT A,500')#set temp limit to 500K
+
+        if self.modelnum == 325:
+            self.write('CSET 1,A,1,0,2')# configure loop
+            self.write('INTYPE A,0,0')#specify diode
+            self.write('HTRSET 1,2')# set to 50 ohm heater
+        elif self.modelnum == 335:
+            self.write('INTYPE A,1,0,0,0,1')#specify diode
+            self.write('OUTMODE 1,1,1,0')#same as CSET
+            self.write('HTRSET 1,1,0,'+str(min(round(np.sqrt(max_power/56),3),1))+',2')#set 50 ohm resister and max current
+        else:
+            print('LakeShore Model not recognized')
+        self.write('INCRV A,02') #set to DT670 diode
+        
+
+
+    def write(self,command):
+        self.instra.write(command)
+        time.sleep(self.waittime)
+
+    def query(self,command):
+        return self.instra.query(command)
+    
+    def startramp(self, parameters):
+        self.write('PID 1,'+ parameters[7][0]+','+ parameters[7][1]+',' + parameters[7][2])#this sets the setpoint to the final temp
+        if self.modelnum == 325:
+            self.write('Range 1,1') #this turns the heater to low
+        elif self.modelnum == 335:
+            self.write('Range,1,2')#set to medium. 
+        else:
+            print('How in the word did you even get this far??')
+
+        if not(int(self.query('RAMP? 1')[0])): #if ramp is off, start ramp
+            self.write('RAMP 1,1,'+ parameters[0])
+            self.write('SETP 1,'+ parameters[2])#this sets the setpoint to the final temp
+
+    def stopramp(self,parameters):
+        ls.write('RAMP 1,0,'+ parameters[0])# Turns off ramping
+        ls.write('SETP 1,'+ parameters[1])# intializes temperature for ramping
+        ls.write('Range 1,0') #this turns the heater off
 
 sens_dict = {1000:0,
             500:1,
@@ -152,28 +202,13 @@ parameters = get_parameters(parameter_file)
 
 rm = pyvisa.ResourceManager()
 try:
-    ls = rm.open_resource('GPIB0::16::INSTR')#this is the lake shore temp controller
-    time.sleep(0.1)
-    ls.write('RAMP 1,0,'+ parameters[0]) #the ramping is intially off
-    print(ls.query('*IDN?'))
+    ls = TempController(16,parameters)
 except:
-    ls = rm.open_resource('GPIB0::9::INSTR')#this is the lake shore temp controller
-    time.sleep(0.1)
-    print(ls.query('*IDN?'))
+    ls = TempController(9,parameters)
+
 srs = rm.open_resource('GPIB0::13::INSTR')#this is the lock-in
 time.sleep(0.1)
 srs.write('SCNENBL 0')
-
-#set intial lakeshore parameters
-ls.write('RAMP 1,0,'+ parameters[0]) #the ramping is intially off
-time.sleep(0.05)
-ls.write('SETP 1,'+ parameters[1]) #this is the starting temp for the ramp
-time.sleep(0.05)
-ls.write('Range 1,0') #this turns the heater off
-time.sleep(0.05)
-ls.write('CSET 1,A,1,0,2')# configure loop
-time.sleep(0.05)
-ls.write('TLIMIT 500')
 
 
 fig = plt.figure(constrained_layout = True)
@@ -237,21 +272,9 @@ while parameters[6] < 3:#main loop
         values['freq'] = float(vs[3])
         #ramp control
         if parameters[10]:#start/update ramp
-            ls.write('PID 1,'+ parameters[7][0]+','+ parameters[7][1]+',' + parameters[7][2])#this sets the setpoint to the final temp
-            time.sleep(0.05)
-            ls.write('Range 1,1') #this turns the heater to low
-            time.sleep(0.05)
-            if not(int(ls.query('RAMP? 1')[0])): #if ramp is off, start ramp
-                ls.write('RAMP 1,1,'+ parameters[0])
-                time.sleep(0.05)
-                ls.write('SETP 1,'+ parameters[2])#this sets the setpoint to the final temp
-            
+            ls.startramp(parameters)#start ramp
         else:#stop ramp
-            ls.write('RAMP 1,0,'+ parameters[0])# Turns off ramping
-            time.sleep(0.05)
-            ls.write('SETP 1,'+ parameters[1])# intializes temperature for ramping
-            time.sleep(0.1)
-            ls.write('Range 1,0') #this turns the heater off
+            ls.stopramp(parameters)
 
         srs.write('SCNENBL 0')
 
@@ -535,21 +558,9 @@ while parameters[6] < 3:#main loop
 
             #ramp control
             if parameters[10]:#start/update ramp
-                ls.write('PID 1,'+ parameters[7][0]+','+ parameters[7][1]+',' + parameters[7][2])#this sets the setpoint to the final temp
-                time.sleep(0.05)
-                ls.write('Range 1,1') #this turns the heater to low
-                time.sleep(0.05)
-                if not(int(ls.query('RAMP? 1')[0])): #if ramp is off, start ramp
-                    ls.write('RAMP 1,1,'+ parameters[0])
-                    time.sleep(0.05)
-                    ls.write('SETP 1,'+ parameters[2])#this sets the setpoint to the final temp
-                
+                ls.startramp(parameters)#start ramp
             else:#stop ramp
-                ls.write('RAMP 1,0,'+ parameters[0])# Turns off ramping
-                time.sleep(0.05)
-                ls.write('SETP 1,'+ parameters[1])# intializes temperature for ramping
-                time.sleep(0.1)
-                ls.write('Range 1,0') #this turns the heater off
+                ls.stopramp(parameters)
 
             #this part can afford to be slower because it is called 400x less
             t3 = time.perf_counter()
@@ -660,19 +671,13 @@ while parameters[6] < 3:#main loop
             if parameters[6] == 2:
                 change_status(1,parameter_file)
                 parameters = get_parameters(parameter_file)
-                time.sleep(.1)
 
         
 
 #######################
 # Close Instruments
 #######################
-ls.write('RAMP 1,0,'+ parameters[0])#turn off ramping
-time.sleep(0.05)
-ls.write('SETP 1,'+ parameters[1]) #set temp back to start
-time.sleep(0.05)
-ls.write('Range 1,0') #this turns the heater off
-time.sleep(0.05)
+ls.stopramp(parameters)
 srs.write('SCNENBL 0')
 ls.close()
 srs.close()
