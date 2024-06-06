@@ -86,11 +86,11 @@ class TempController:
         self.write('Range 1,0') #this turns the heater off
         self.write('TLIMIT A,500')#set temp limit to 500K
 
-        if self.modelnum == 325:
+        if self.modelnum == '325':
             self.write('CSET 1,A,1,0,2')# configure loop
             self.write('INTYPE A,0,0')#specify diode
             self.write('HTRSET 1,2')# set to 50 ohm heater
-        elif self.modelnum == 335:
+        elif self.modelnum == '335':
             self.write('INTYPE A,1,0,0,0,1')#specify diode
             self.write('OUTMODE 1,1,1,0')#same as CSET
             self.write('HTRSET 1,1,0,'+str(min(round(np.sqrt(max_power/56),3),1))+',2')#set 50 ohm resister and max current
@@ -109,12 +109,12 @@ class TempController:
     
     def startramp(self, parameters):
         self.write('PID 1,'+ parameters[7][0]+','+ parameters[7][1]+',' + parameters[7][2])#this sets the setpoint to the final temp
-        if self.modelnum == 325:
+        if self.modelnum == '325':
             self.write('Range 1,1') #this turns the heater to low
-        elif self.modelnum == 335:
+        elif self.modelnum == '335':
             self.write('Range,1,2')#set to medium. 
         else:
-            print('How in the word did you even get this far??')
+            print('How in the world did you even get this far??')
 
         if not(int(self.query('RAMP? 1')[0])): #if ramp is off, start ramp
             self.write('RAMP 1,1,'+ parameters[0])
