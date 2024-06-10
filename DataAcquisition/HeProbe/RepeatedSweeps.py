@@ -96,9 +96,7 @@ class TempController:
         else:
             print('LakeShore Model not recognized')
         self.write('INCRV A,02') #set to DT670 diode
-        
-
-
+    
     def write(self,command):
         self.instra.write(command)
         time.sleep(self.waittime)
@@ -213,7 +211,7 @@ time.sleep(0.1)
 srs.write('SCNENBL 0')
 
 save_file = open(os.path.join(save_path, input("Please type the file name here: ") + ".dat"), "a")
-if save_file.tell() == 0:
+if save_file.tell() == 0:#empty file
     current_datetime = datetime.now()
     formatted_datetime = current_datetime.strftime("%m/%d/%Y %H:%M:%S")
     save_file.write("Time (min)"   + "\t"+ 'Temp (K)'+"\t"+"Vx (V)" + "\t" + "Vy (V)"+ "\t" + "R (V)"+ "\t" + 'Freq (Hz)'+"\t"+ "Sweep Number: Current Time is "+formatted_datetime+'\n')
@@ -323,7 +321,7 @@ while parameters[6] < 2:#main loop
         save_file.flush()#this will save the data without closing the file
         plt.pause(pause_time) #this displays the graph
 
-    while parameters[6] == 1: #temp ramp mode
+    while parameters[6] == 1: #freq sweep mode
         try:
             # t0 = time.perf_counter()
             if not(f_center-parameters[4]/2>=500 and f_center+parameters[4]/2<=4000):#check if the freq scan will be valid
@@ -506,6 +504,7 @@ while parameters[6] < 2:#main loop
             # t7 = time.perf_counter()
             # print(t1-t0,t2-t1,t3-t2,t4-t3,t5-t4,t6-t5,t7-t6)
         except NameError:# find resonance frequency
+            print('Finding Resonance Frequency')
             srs.write('FREQINT 500 KHZ')
             parameters = get_parameters(parameter_file)
             intiate_scan(srs,500,4000,parameters[5],30,False)
