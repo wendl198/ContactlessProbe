@@ -327,7 +327,6 @@ while parameters[6] < 2:#main loop
             if not(f_center-parameters[4]/2>=500 and f_center+parameters[4]/2<=4000):#check if the freq scan will be valid
                 print('Resonance frequency out of bounds. Attempting to readjust')
                 raise NameError
-    
 
             parameters = get_parameters(parameter_file)
             #ramp control
@@ -355,7 +354,6 @@ while parameters[6] < 2:#main loop
             if parameters[11]: #3 part scan
                 intiate_scan(srs,f_center-parameters[4]/2,f_center-parameters[12]/2,parameters[5],parameters[3]/3,False)
                 srs.write('SCNRUN') #start scan
-                
                 while srs.query('SCNSTATE?').strip() == '2':#scanning
                     vs = srs.query('SNAPD?').split(',')
                     buffer_file.write('\t'.join((str((time.perf_counter()-intitial_time)/60),  str(float(ls.query('KRDG? a'))), vs[0], vs[1], vs[2], vs[3][:-1], sweep_str))+"\n")
@@ -363,7 +361,6 @@ while parameters[6] < 2:#main loop
 
                 intiate_scan(srs,f_center-parameters[12]/2,f_center+parameters[12]/2,parameters[5],parameters[3]/3,False)
                 srs.write('SCNRUN') #start scan
-                
                 while srs.query('SCNSTATE?').strip() == '2':#scanning
                     vs = srs.query('SNAPD?').split(',') 
                     buffer_file.write('\t'.join((str((time.perf_counter()-intitial_time)/60),  str(float(ls.query('KRDG? a'))), vs[0], vs[1], vs[2], vs[3][:-1], sweep_str))+"\n")
@@ -371,17 +368,14 @@ while parameters[6] < 2:#main loop
                 
                 intiate_scan(srs,f_center+parameters[12]/2,f_center+parameters[4]/2,parameters[5],parameters[3]/3,False)
                 srs.write('SCNRUN') #start scan
-                
                 while srs.query('SCNSTATE?').strip() == '2':#scanning
                     vs = srs.query('SNAPD?').split(',') 
                     buffer_file.write('\t'.join((str((time.perf_counter()-intitial_time)/60),  str(float(ls.query('KRDG? a'))), vs[0], vs[1], vs[2], vs[3][:-1], sweep_str))+"\n")
                     buffer_file.flush()
 
             else:#single scan
-
                 intiate_scan(srs,f_center-parameters[4]/2,f_center+parameters[4]/2,parameters[5],parameters[3],False)
                 srs.write('SCNRUN') #start scan
-                
                 while srs.query('SCNSTATE?').strip() == '2':#scanning
                     #ta = time.perf_counter()
                     vs = srs.query('SNAPD?').split(',')
@@ -391,6 +385,7 @@ while parameters[6] < 2:#main loop
                     buffer_file.flush()
                     #td = time.perf_counter()
                     #print(tb-ta,tc-tb)
+            
             # t2 = time.perf_counter()    
             srs.write('SCNENBL 0')
             parameters = get_parameters(parameter_file)
@@ -403,6 +398,7 @@ while parameters[6] < 2:#main loop
 
             #this part can afford to be slower because it is called 400x less
             # t3 = time.perf_counter()
+            
             #######################
             # Retrieve Data
             #######################
@@ -419,18 +415,18 @@ while parameters[6] < 2:#main loop
             save_file.flush()
             new_data= np.array(new_data)
             # t4 = time.perf_counter()
+            
             #######################
             # fitting
             #######################
             plot_freqs = new_data[5]/1000
             plot_vmags = new_data[4]*1000
-
             guesses1[0] = plot_freqs[np.argmin(plot_vmags)]
             bestfit = optimize.curve_fit(full_lorenzian_fit_with_skew,plot_freqs,plot_vmags,guesses1, bounds=pbounds1)
             bestpars = bestfit[0]
-
             f_center = bestpars[0]
             srs.write('FREQINT '+str(round((f_center-parameters[4]/2),0))+ ' KHZ')#set frequency for next scan
+            
             #######################
             # Plotting
             #######################
@@ -503,6 +499,7 @@ while parameters[6] < 2:#main loop
             plt.pause(1)#show plot
             # t7 = time.perf_counter()
             # print(t1-t0,t2-t1,t3-t2,t4-t3,t5-t4,t6-t5,t7-t6)
+        
         except NameError:# find resonance frequency
             print('Finding Resonance Frequency')
             srs.write('FREQINT 500 KHZ')
