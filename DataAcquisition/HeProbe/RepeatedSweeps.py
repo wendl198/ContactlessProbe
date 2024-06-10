@@ -87,7 +87,7 @@ class TempController:
 
         if self.modelnum == '325':
             self.write('CSET 1,A,1,0,2')# configure loop
-            self.write('INTYPE A,0,0')#specify diode
+            self.write('INTYPE A,[],[]')#specify diode
             self.write('HTRSET 1,2')# set to 50 ohm heater
         elif self.modelnum == '335':
             self.write('INTYPE A,1,0,0,0,1')#specify diode
@@ -239,13 +239,13 @@ fx.set_ylabel('Voltage Magnitude (mV)')
 T0 = float(ls.query('KRDG? a'))
 vx0,vy0,R0,f0 = srs.query('SNAPD?').split(',')
 intitial_time = time.perf_counter()#get intitial time
-p1, = ax.plot(0,T0,'ko-',markersize = 4)
-p2, = bx.plot(0,0,'ro-',markersize = 4)
-p3, = cx.plot(0,0,'bo-',markersize = 4) 
-p4, = dx.plot(f1 := float(f0)/1000,1000*float(vx0),'go-',markersize = 4) #plot in mV
-p5, = ex.plot(f1,1000*float(vy0),'co-',markersize = 4) #plot in mV
-p6, = fx.plot(f1,1000*float(R0),'mo-',markersize = 4) #plot in mV
-p7, = fx.plot(f1,1000*float(R0),c='black')
+p1, = ax.plot([],[],'ko-',markersize = 4)
+p2, = bx.plot([],[],'ro-',markersize = 4)
+p3, = cx.plot([],[],'bo-',markersize = 4) 
+p4, = dx.plot([],[],'go-',markersize = 4) #plot in mV
+p5, = ex.plot([],[],'co-',markersize = 4) #plot in mV
+p6, = fx.plot([],[],'mo-',markersize = 4) #plot in mV
+p7, = fx.plot([],[],c='black')
 
 values = {}
 sweep_num = 0
@@ -331,21 +331,9 @@ while parameters[6] < 2:#main loop
             parameters = get_parameters(parameter_file)
             #ramp control
             if parameters[10]:#start/update ramp
-                ls.write('PID 1,'+ parameters[7][0]+','+ parameters[7][1]+',' + parameters[7][2])#this sets the setpoint to the final temp
-                time.sleep(0.05)
-                ls.write('Range 1,1') #this turns the heater to low
-                time.sleep(0.05)
-                if not(int(ls.query('RAMP? 1')[0])): #if ramp is off, start ramp
-                    ls.write('RAMP 1,1,'+ parameters[0])
-                    time.sleep(0.05)
-                    ls.write('SETP 1,'+ parameters[2])#this sets the setpoint to the final temp
-                
+                ls.startramp(parameters)#start ramp
             else:#stop ramp
-                ls.write('RAMP 1,0,'+ parameters[0])# Turns off ramping
-                time.sleep(0.05)
-                ls.write('SETP 1,'+ parameters[1])# intializes temperature for ramping
-                time.sleep(0.1)
-                ls.write('Range 1,0') #this turns the heater off
+                ls.stopramp(parameters)
 
             buffer_file = open(os.path.join(save_path, "buffer.dat"), "w+")
             sweep_num += 1 #this will help identify sweeps from each other
