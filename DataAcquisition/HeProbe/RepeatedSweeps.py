@@ -420,7 +420,7 @@ while parameters[6] < 2:#main loop
             #######################
             #append time data
             # t5 = time.perf_counter()
-            ax.set_title('CurrTemp ='+str(new_data[-1][1]),fontsize = 12)
+            ax.set_title('CurrTemp ='+data[1],fontsize = 12)
             cx.set_title('Temp Setpoint ='+str(ls.query('SETP? 1'))[1:6],fontsize = 12)
 
             times = np.append(p1.get_xdata(),new_data[0])
