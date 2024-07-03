@@ -7,15 +7,15 @@ import time
 
 
 signal_amp = 2000 #in mV
-time_cons = [100] #ms
-freq_range = [500,2500] #in kHz
-scan_time = 60*2 #in seconds
+time_cons = [1] #ms
+freq_range = [1200,1800] #in kHz
+scan_time = 60*.5 #in seconds
 
 save_path = 'C:\\Users\\Contactless\\Desktop\\Contactless Probe\\RawData'
 current_datetime = datetime.now()
 formatted_datetime = current_datetime.strftime("%m/%d/%Y %H:%M:%S")
 save_file = open(os.path.join(save_path, input("Please type the file name here: ") + ".dat"), "a")
-save_file.write("Time (min)"   + "\t"+ "Vx (V)" + "\t" + "Vy (V)"+ "\t" + "R (V)"+ "\t" + 'Freq (kHz)'+ "\t" + "Time Constant (ms): Current Time is "+formatted_datetime+' Signal Voltage is' +str(signal_amp)+'mV\n')
+save_file.write("Time (min)"   + "\t"+ "Vx (V)" + "\t" + "Vy (V)"+ "\t" + "R (V)"+ "\t" + 'Freq (kHz)'+ "\t" + "Time Constant (ms): Current Time is "+formatted_datetime+' Signal Voltage is ' +str(signal_amp)+' mV\n')
 #voltage mode: -1 means A-B mode, 1 means A
 
 sens_dict = {1000:0,
@@ -72,7 +72,7 @@ command_list = [
 for com in command_list:
     #print(com)
     srs.write(com) #execute command
-    time.sleep(0.05)#wait 10ms
+    time.sleep(0.1)#wait 10ms
 
 fig = plt.figure(constrained_layout = True)
 ax = fig.add_subplot(3, 1, 1)
@@ -92,12 +92,11 @@ p3, = cx.plot(f1,1000*float(R0),'bo-') #plot in mV
 
 values = {}
 intitial_time = time.perf_counter()#get intitial time
-
 srs.write('SCNRUN') #start scan
 print('Sweeping at ' + str((freq_range[1]-freq_range[0])/scan_time*60) +' kHz/min')
 time.sleep(.05)
 for time_con in time_cons:
-    srs.write('OFLT 10') #100ms time cosntant
+    srs.write('OFLT 6') #100ms time cosntant
     while srs.query('SCNSTATE?').strip()=='2':#scan is running
         plt.pause(time_con*5/1000)#this cnverts time_con from ms to s
         values['Vx'],values['Vy'],values['R'],values['Freq'] = srs.query('SNAPD?').split(',') 
@@ -109,10 +108,10 @@ for time_con in time_cons:
         values['time'] = (time.perf_counter()-intitial_time)/60 #The time is now in minutes
         save_file.write(str(values['time'])  + "\t" + values['Vx'].strip() + "\t" + values['Vy'].strip()+ "\t" +  values['R'].strip() + "\t" + values['Freq'].strip()+ "\t"+str(time_con)+"\n")
         save_file.flush()
-        
+            
         ax.set_title('Current Frequency '+str(round(f:= (float(values['Freq'])/1000),1))+' kHz')
 
-        
+            
         freqs = np.append(p1.get_xdata(),f)
         y1 = np.append(p1.get_ydata(),1000*float(values['Vx'])) # plot the voltages in mV
         y2 = np.append(p2.get_ydata(),1000*float(values['Vy']))

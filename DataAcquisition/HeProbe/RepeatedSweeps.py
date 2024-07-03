@@ -216,7 +216,7 @@ if save_file.tell() == 0:#empty file
     formatted_datetime = current_datetime.strftime("%m/%d/%Y %H:%M:%S")
     save_file.write("Time (min)"   + "\t"+ 'Temp (K)'+"\t"+"Vx (V)" + "\t" + "Vy (V)"+ "\t" + "R (V)"+ "\t" + 'Freq (Hz)'+"\t"+ "Sweep Number: Current Time is "+formatted_datetime+'\n')
 
-fig = plt.figure(constrained_layout = True)
+fig = plt.figure(figsize = (12,9))
 ax = fig.add_subplot(2, 3, 1)
 bx = fig.add_subplot(2, 3, 2)
 cx = fig.add_subplot(2, 3, 3)

@@ -4,10 +4,10 @@ FinalTemp(K): 300
 SweepTime(s): 15
 FreqWidth(kHz): 300
 SignalAmp(mV): 2000
-Status: 0 0=idle,1=intialscan,2=repeatedscan,>2=end
+Status: 0 0=idle,1=repeatedscan,>1=end
 PID: 120 20 0
 AutoScale?: 1
 TimeScale: 0 1
 Ramping?: 0
-3PartScan?: 0
+3PartScan?: 1
 PeakWidth: 30
