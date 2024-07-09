@@ -1,3 +1,3 @@
-start notepad "C:\Users\Contactless\Desktop\Contactless Probe\HeProbe\HeProbeParameters.txt"
-"C:\Users\Contactless\Desktop\Contactless Probe\Contactless venv\Scripts\python.exe" "C:\Users\Contactless\Desktop\Contactless Probe\HeProbe\TempMonitor.py"
+start notepad "C:\Users\NewContactless\Desktop\Contactless Probe\HeProbe\HeProbeParameters.txt"
+"C:\Users\NewContactless\Desktop\Contactless Probe\Contactless venv\Scripts\python.exe" "C:\Users\NewContactless\Desktop\Contactless Probe\HeProbe\TempMonitor.py"
 PAUSE

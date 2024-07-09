@@ -14,9 +14,9 @@ def simple_lorenzian_fit(fs, f0,Q,Smax,A1):
 # It also works for any read_path in read_paths
 
 read_paths = [
-    'C:\\Users\\Contactless\\Desktop\\Contactless Probe\\RawData\\HeProbe',
+    'C:\\Users\\NewContactless\\Desktop\\Contactless Probe\\RawData\\HeProbe',
     'C:/Users/blake/Documents/VSCode/Python/Greven/RawData/HeProbe/',
-    'C:\\Users\\Contactless\\Desktop\\Contactless Probe\\RawData\\'
+    'C:\\Users\\NewContactless\\Desktop\\Contactless Probe\\RawData\\'
     ]
 for read_path in read_paths:
     try:

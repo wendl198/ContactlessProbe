@@ -191,9 +191,9 @@ set_command_list = [
 ]
 
 
-parameter_path = 'C:\\Users\\Contactless\\Desktop\\Contactless Probe\\HeProbe\\HeProbeParameters.txt'
-default_path = 'C:\\Users\\Contactless\\Desktop\\Contactless Probe\\HeProbe\\HeProbeDefaultParameters.txt'
-save_path = 'C:\\Users\\Contactless\\Desktop\\Contactless Probe\\RawData\\HeProbe\\'
+parameter_path = 'C:\\Users\\NewContactless\\Desktop\\Contactless Probe\\HeProbe\\HeProbeParameters.txt'
+default_path = 'C:\\Users\\NewContactless\\Desktop\\Contactless Probe\\HeProbe\\HeProbeDefaultParameters.txt'
+save_path = 'C:\\Users\\NewContactless\\Desktop\\Contactless Probe\\RawData\\HeProbe\\'
 
 
 rm = pyvisa.ResourceManager()
