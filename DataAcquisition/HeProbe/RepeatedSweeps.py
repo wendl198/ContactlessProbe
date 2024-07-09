@@ -184,11 +184,17 @@ set_command_list = [
     'SCNLOG 0',#set linear scan with 0 log scan with 1
     'SCNINRVL 1', #fastest freq scan time update resolution 0 =8ms 2=31ms, 1 = 16ms
     'ISRC 0', #read only A voltage
+    'IGND 0', #set ground to floating
     'OFLT '+ str(i), #set time constant
     'CDSP 0, 0', #first data point is vx
     'CDSP 1, 1', #second is vy
     'CDSP 2, 2', #third is R
     'CDSP 3, 15', #fourth is freq
+    'HARM 1', #set to first harmonic
+    'SOFF 0 MV' #set DC offset to 0
+    'CEXP 0, 0', #set Vx multiplier to 1x
+    'CEXP 1, 0',#set Vy multiplier to 1x
+    'CEXP 2, 0'#set R multiplier to 1x
 ]
 
 

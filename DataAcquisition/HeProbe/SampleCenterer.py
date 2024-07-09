@@ -183,15 +183,22 @@ set_command_list = [
     'SCNLOG 0',#set linear scan with 0 log scan with 1
     'SCNINRVL 1', #fastest freq scan time update resolution 0 =8ms 2=31ms, 1 = 16ms
     'ISRC 0', #read only A voltage
+    'IGND 0', #set ground to floating
     'OFLT '+ str(i), #set time constant
     'CDSP 0, 0', #first data point is vx
     'CDSP 1, 1', #second is vy
     'CDSP 2, 2', #third is R
     'CDSP 3, 15', #fourth is freq
+    'HARM 1', #set to first harmonic
+    'SOFF 0 MV' #set DC offset to 0
+    'CEXP 0, 0', #set Vx multiplier to 1x
+    'CEXP 1, 0',#set Vy multiplier to 1x
+    'CEXP 2, 0'#set R multiplier to 1x
 ]
 
 
 parameter_path = 'C:\\Users\\NewContactless\\Desktop\\Contactless Probe\\HeProbe\\HeProbeParameters.txt'
+
 default_path = 'C:\\Users\\NewContactless\\Desktop\\Contactless Probe\\HeProbe\\HeProbeDefaultParameters.txt'
 save_path = 'C:\\Users\\NewContactless\\Desktop\\Contactless Probe\\RawData\\HeProbe\\'
 
@@ -249,8 +256,8 @@ repeat_scan_time = 5
 # Main Loop
 #######################
 
-while parameters[6] < 3:#main loop
-    while parameters[6] <2: #freq only ramp mode
+while parameters[6] < 2:#main loop
+    while parameters[6] <1: #freq only ramp mode
         srs.write('FREQINT 500 KHZ')
         intiate_scan(srs,500,4000,parameters[5],30,False)
         vs = srs.query('SNAPD?').split(',') #this is [Vx, Vy, Vmag, freq]
@@ -366,18 +373,20 @@ while parameters[6] < 3:#main loop
             data = line.split()
             plot_freqs[i] = float(data[5])/1000
             plot_vmags[i] = float(data[4])*1000
-        guesses1 = [plot_freqs[np.argmin(plot_vmags)],30,400,400,.1,-.4]
-        pbounds1 = np.array([[min(plot_freqs),1,-.5e3,0,-1,-1],[max(plot_freqs),1e3,.5e3,.5e3,1,1]]) # [[Lower bounds],[upper bounds]]
+        guesses1 = [plot_freqs[np.argmin(plot_vmags)],186,-2.35e3,5e2,-3.3e-2,1.2]
+        pbounds1 = np.array([[500,1,-1e4,0,-1,-10],[4000,1e3,1e4,2e3,1,10]]) # [[Lower bounds],[upper bounds]]
+        guesses1[0] = plot_freqs[np.argmin(plot_vmags)]
+        guesses1[2] = (plot_vmags[0]+plot_vmags[-1])/2
         bestfit = optimize.curve_fit(full_lorenzian_fit_with_skew,plot_freqs,plot_vmags,guesses1, bounds=pbounds1)
         bestpars = bestfit[0]
         f_center = bestpars[0]
     
-        change_status(2,parameter_file)
+        change_status(1,parameter_file)
         parameters = get_parameters(parameter_file)
         srs.write('SCNENBL 0')
         print('Starting Sample Center')
 
-    while parameters[6] == 2: #temp ramp mode
+    while parameters[6] == 1: #temp ramp mode
         try:
             if not(f_center-repeat_scan_width/2>=0 and f_center+repeat_scan_time/2<=4000):#check if the freq scan will be valid
                 change_status(1,parameter_file)
@@ -462,8 +471,8 @@ while parameters[6] < 3:#main loop
             plot_freqs = new_data[5]/1000
             plot_vmags = new_data[4]*1000
 
-            guesses1 = [plot_freqs[np.argmin(plot_vmags)],30,400,400,.1,-.4]
-            pbounds1 = np.array([[min(plot_freqs),1,-.5e3,0,-1,-1],[max(plot_freqs),1e3,.5e3,.5e3,1,1]]) # [[Lower bounds],[upper bounds]]
+            guesses1[0] = plot_freqs[np.argmin(plot_vmags)]
+            guesses1[2] = (plot_vmags[0]+plot_vmags[-1])/2
             bestfit = optimize.curve_fit(full_lorenzian_fit_with_skew,plot_freqs,plot_vmags,guesses1, bounds=pbounds1)
             bestpars = bestfit[0]
 
