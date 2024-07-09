@@ -410,6 +410,7 @@ while parameters[6] < 2:#main loop
             plot_freqs = new_data[5]/1000
             plot_vmags = new_data[4]*1000
             guesses1[0] = plot_freqs[np.argmin(plot_vmags)]
+            guesses1[2] = (plot_vmags[0]+plot_vmags[-1])/2
             bestfit = optimize.curve_fit(full_lorenzian_fit_with_skew,plot_freqs,plot_vmags,guesses1, bounds=pbounds1)
             bestpars = bestfit[0]
             f_center = bestpars[0]
