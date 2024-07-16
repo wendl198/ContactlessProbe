@@ -5,3 +5,5 @@ This is meant to have all the code that I have compiled that may be useful for t
 DataAcquisition folder should have everything that you will need in order to run the probe. 
 
 There are assorted tutorials and SOPs available in this google drive folder: https://drive.google.com/drive/folders/1NYYNq_5F3oWOElOhdVvI6J9_ZByNiAqg?usp=sharing
+
+If you need any raw data or have any questions, please reach out to me, Blake Wendland at blakewendland@gmail.com or wendl198@umn.edu
