@@ -194,7 +194,7 @@ while parameters[6] < 3:#main loop
                     ax.set_xlim(left = 0, right = values['time'])
                 ax.set_ylim(bottom = y1[inds].min(), top = y1[inds].max())
 
-            plt.pause(0.031)
+            plt.pause(0.1)
 
             parameters = get_parameters(parameter_file)
 
