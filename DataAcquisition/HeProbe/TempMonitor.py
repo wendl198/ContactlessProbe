@@ -51,12 +51,12 @@ def change_status(new_status,f):
 
 
 class TempController:
-    def __init__(self,GPIBport,parameters,time, temp, max_power = 16, waittime = 0.05):
+    def __init__(self,GPIBport,parameters, max_power = 16, waittime = 0.05):
         self.instra = rm.open_resource('GPIB0::'+str(GPIBport)+'::INSTR')
         self.waittime = waittime
         self.modelnum = self.instra.query('*IDN?').split(',')[1][-3:]
-        self.pasttime = time
-        self.pasttemp = temp
+        self.pasttime = (time.perf_counter()-intitial_time)/60
+        self.pasttemp = 0
 
         self.write('RAMP 1,0,'+ parameters[0]) #the ramping is intially off
         self.write('SETP 1,'+ parameters[1]) #this is the starting temp for the ramp
