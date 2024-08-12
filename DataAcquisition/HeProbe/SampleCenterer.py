@@ -74,12 +74,12 @@ def intiate_scan(instrument,start_freq,end_freq,signal_amp,scan_time,repeat,wait
 def full_lorenzian_fit_with_skew(fs, f0,Q,Smax,A1,A2,A3):#fs is the data, f0 is the resonance freq
     return A1 + A2*fs + (Smax+A3*fs)/np.sqrt(1+4*(Q*(fs/f0-1))**2)#this is eq 10 from Measurement of resonant frequency and quality factor of microwave resonators: Comparison of methods Paul J. Petersan; Steven M. Anlage
 class TempController:
-    def __init__(self,GPIBport,parameters,time, temp, max_power = 16, waittime = 0.05):
+    def __init__(self,GPIBport,parameters, max_power = 16, waittime = 0.05):
         self.instra = rm.open_resource('GPIB0::'+str(GPIBport)+'::INSTR')
         self.waittime = waittime
         self.modelnum = self.instra.query('*IDN?').split(',')[1][-3:]
-        self.pasttime = time
-        self.pasttemp = temp
+        self.pasttime = (time.perf_counter()-intitial_time)/60
+        self.pasttemp = 0
 
         self.write('RAMP 1,0,'+ parameters[0]) #the ramping is intially off
         self.write('SETP 1,'+ parameters[1]) #this is the starting temp for the ramp
