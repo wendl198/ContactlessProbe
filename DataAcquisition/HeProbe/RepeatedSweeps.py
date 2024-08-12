@@ -49,6 +49,14 @@ def get_parameters(f):
 #     # StartRamp = 1
 #     # Stop = 2
 
+def kill_heating(f):
+    f.seek(0)
+    lines = f.readlines()
+    lines[10] = 'Ramping: 0\n'
+    file1 = open(parameter_path,"w")#write mode
+    file1.writelines(lines)
+    file1.close()
+
 def intiate_scan(instrument,start_freq,end_freq,signal_amp,scan_time,repeat,wait_time = 0.01):
     for com in set_command_list:
         instrument.write(com) #execute command
@@ -75,10 +83,12 @@ def full_lorenzian_fit_with_skew(fs, f0,Q,Smax,A1,A2,A3):#fs is the data, f0 is 
     return A1 + A2*fs + (Smax+A3*fs)/np.sqrt(1+4*(Q*(fs/f0-1))**2)#this is eq 10 from Measurement of resonant frequency and quality factor of microwave resonators: Comparison of methods Paul J. Petersan; Steven M. Anlage
 
 class TempController:
-    def __init__(self,GPIBport,parameters,max_power = 16, waittime = 0.05):
+    def __init__(self,GPIBport,parameters,time, temp, max_power = 16, waittime = 0.05):
         self.instra = rm.open_resource('GPIB0::'+str(GPIBport)+'::INSTR')
         self.waittime = waittime
         self.modelnum = self.instra.query('*IDN?').split(',')[1][-3:]
+        self.pasttime = time
+        self.pasttemp = temp
 
         self.write('RAMP 1,0,'+ parameters[0]) #the ramping is intially off
         self.write('SETP 1,'+ parameters[1]) #this is the starting temp for the ramp
@@ -105,8 +115,16 @@ class TempController:
     def query(self,command):
         return self.instra.query(command)
     
-    def startramp(self, parameters):
+    def startramp(self, parameters,time,temp,f = parameter_file):
         self.write('PID 1,'+ parameters[7][0]+','+ parameters[7][1]+',' + parameters[7][2])#this sets the setpoint to the final temp
+        if temp - parameters[2] > -5:
+            rate = (temp-self.pasttemp)/(time-self.pasttime)
+            if rate < .1 * parameters[0]:
+                kill_heating(f)
+                self.stopramp(parameters)
+                return None # exit function
+        self.pasttemp = temp
+        self.pasttime  = time
         if self.modelnum == '325':
             self.write('Range 1,1') #this turns the heater to low
         elif self.modelnum == '335':
@@ -276,7 +294,7 @@ while parameters[6] < 2:#main loop
         values['freq'] = float(vs[3])
         #ramp control
         if parameters[10]:#start/update ramp
-            ls.startramp(parameters)#start ramp
+            ls.startramp(parameters, values['time'],values['Temp'],parameter_file)#start ramp
         else:#stop ramp
             ls.stopramp(parameters)
 
@@ -330,22 +348,16 @@ while parameters[6] < 2:#main loop
 
     while parameters[6] == 1: #freq sweep mode
         try:
-            # t0 = time.perf_counter()
             if not(f_center-parameters[4]/2>=500 and f_center+parameters[4]/2<=4000):#check if the freq scan will be valid
                 print('Resonance frequency out of bounds. Attempting to readjust')
                 raise NameError
 
             parameters = get_parameters(parameter_file)
-            #ramp control
-            if parameters[10]:#start/update ramp
-                ls.startramp(parameters)#start ramp
-            else:#stop ramp
-                ls.stopramp(parameters)
-
+            
             buffer_file = open(os.path.join(save_path, "buffer.dat"), "w+")
             sweep_num += 1 #this will help identify sweeps from each other
             sweep_str = str(sweep_num)
-            # t1 = time.perf_counter()
+            
             if parameters[11]: #3 part scan
                 intiate_scan(srs,f_center-parameters[4]/2,f_center-parameters[12]/2,parameters[5],parameters[3]/3,False)
                 srs.write('SCNRUN') #start scan
@@ -380,19 +392,13 @@ while parameters[6] < 2:#main loop
                     buffer_file.flush()
                     #td = time.perf_counter()
                     #print(tb-ta,tc-tb)
-            
-            # t2 = time.perf_counter()    
+             
             srs.write('SCNENBL 0')
             parameters = get_parameters(parameter_file)
 
-            #ramp control
-            if parameters[10]:#start/update ramp
-                ls.startramp(parameters)#start ramp
-            else:#stop ramp
-                ls.stopramp(parameters)
+            
 
             #this part can afford to be slower because it is called 400x less
-            # t3 = time.perf_counter()
             
             #######################
             # Retrieve Data
@@ -409,7 +415,6 @@ while parameters[6] < 2:#main loop
                         new_data[i].append(float(dat))
             save_file.flush()
             new_data= np.array(new_data)
-            # t4 = time.perf_counter()
             
             #######################
             # fitting
@@ -427,7 +432,6 @@ while parameters[6] < 2:#main loop
             # Plotting
             #######################
             #append time data
-            # t5 = time.perf_counter()
             ax.set_title('CurrTemp ='+data[1],fontsize = 12)
             cx.set_title('Temp Setpoint ='+str(ls.query('SETP? 1'))[1:6],fontsize = 12)
 
@@ -491,10 +495,14 @@ while parameters[6] < 2:#main loop
                     inds = np.logical_not(times<0)
                     ax.set_xlim(left = 0, right = times[-1])
                 ax.set_ylim(bottom = y1[inds].min(), top = y1[inds].max())
-            # t6 = time.perf_counter()
+
+            #ramp control
+            if parameters[10]:#start/update ramp
+                ls.startramp(parameters,np.average(new_data[0]),T_avg,parameter_file)#start ramp
+            else:#stop ramp
+                ls.stopramp(parameters)
+                
             plt.pause(1)#show plot
-            # t7 = time.perf_counter()
-            # print(t1-t0,t2-t1,t3-t2,t4-t3,t5-t4,t6-t5,t7-t6)
         
         except NameError:# find resonance frequency
             print('Finding Resonance Frequency')
@@ -540,7 +548,12 @@ while parameters[6] < 2:#main loop
                 srs.write('SCAL '+str(j))
                 values['time'] = (time.perf_counter()-intitial_time)/60 #The time is now in minutes
                 values['Temp'] = float(ls.query('KRDG? a')) #temp in K
-
+                
+                if parameters[10]:#start/update ramp
+                    ls.startramp(parameters, values['time'],values['Temp'],parameter_file)#start ramp
+                else:#stop ramp
+                    ls.stopramp(parameters)
+                    
                 #######################
                 # Plotting
                 #######################
