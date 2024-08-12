@@ -91,7 +91,7 @@ class TempController:
         elif self.modelnum == '335':
             self.write('INTYPE A,1,0,0,0,1')#specify diode
             self.write('OUTMODE 1,1,1,0')#same as CSET
-            self.write('HTRSET 1,1,0,'+str(min(round(np.sqrt(max_power/56),3),1))+',2')#set 50 ohm resister and max current
+            self.write('HTRSET 1,1,2,0,'+str(min(round(np.sqrt(max_power/56),3),1))+',2')#set 50 ohm resister and max current
             self.write('MOUT 1,0')#set manual output to 0%
         else:
             print('LakeShore Model not recognized')
