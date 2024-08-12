@@ -87,7 +87,7 @@ class TempController:
         self.instra = rm.open_resource('GPIB0::'+str(GPIBport)+'::INSTR')
         self.waittime = waittime
         self.modelnum = self.instra.query('*IDN?').split(',')[1][-3:]
-        self.pasttime = (time.perf_counter()-intitial_time)/60
+        self.pasttime = 0
         self.pasttemp = 0
 
         self.write('RAMP 1,0,'+ parameters[0]) #the ramping is intially off
