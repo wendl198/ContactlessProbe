@@ -74,10 +74,12 @@ def intiate_scan(instrument,start_freq,end_freq,signal_amp,scan_time,repeat,wait
 def full_lorenzian_fit_with_skew(fs, f0,Q,Smax,A1,A2,A3):#fs is the data, f0 is the resonance freq
     return A1 + A2*fs + (Smax+A3*fs)/np.sqrt(1+4*(Q*(fs/f0-1))**2)#this is eq 10 from Measurement of resonant frequency and quality factor of microwave resonators: Comparison of methods Paul J. Petersan; Steven M. Anlage
 class TempController:
-    def __init__(self,GPIBport,parameters,max_power = 16, waittime = 0.05):
+    def __init__(self,GPIBport,parameters,time, temp, max_power = 16, waittime = 0.05):
         self.instra = rm.open_resource('GPIB0::'+str(GPIBport)+'::INSTR')
         self.waittime = waittime
         self.modelnum = self.instra.query('*IDN?').split(',')[1][-3:]
+        self.pasttime = time
+        self.pasttemp = temp
 
         self.write('RAMP 1,0,'+ parameters[0]) #the ramping is intially off
         self.write('SETP 1,'+ parameters[1]) #this is the starting temp for the ramp
@@ -91,7 +93,7 @@ class TempController:
         elif self.modelnum == '335':
             self.write('INTYPE A,1,0,0,0,1')#specify diode
             self.write('OUTMODE 1,1,1,0')#same as CSET
-            self.write('HTRSET 1,1,2,0,'+str(min(round(np.sqrt(max_power/56),3),1))+',2')#set 50 ohm resister and max current
+            self.write('HTRSET 1,1,2,0'+str(min(round(np.sqrt(max_power/56),3),1))+',2')#set 50 ohm resister and max current
             self.write('MOUT 1,0')#set manual output to 0%
         else:
             print('LakeShore Model not recognized')
@@ -104,8 +106,16 @@ class TempController:
     def query(self,command):
         return self.instra.query(command)
     
-    def startramp(self, parameters):
+    def startramp(self, parameters,time,temp,f):
         self.write('PID 1,'+ parameters[7][0]+','+ parameters[7][1]+',' + parameters[7][2])#this sets the setpoint to the final temp
+        if temp - parameters[2] > -5:
+            rate = (temp-self.pasttemp)/(time-self.pasttime)
+            if rate < .1 * parameters[0]:# if the ramp rate falls to 10% or less than the desired ramp rate, kill heating assuming, the final temp is being approached
+                kill_heating(f)
+                self.stopramp(parameters)
+                return None # exit function
+        self.pasttemp = temp
+        self.pasttime  = time
         if self.modelnum == '325':
             self.write('Range 1,1') #this turns the heater to low
         elif self.modelnum == '335':
@@ -216,15 +226,6 @@ try:
     ls = TempController(16,parameters)
 except:
     ls = TempController(9,parameters)
-ls.write('RAMP 1,0,'+ parameters[0]) #the ramping is intially off
-time.sleep(0.05)
-ls.write('SETP 1,'+ parameters[1]) #this is the starting temp for the ramp
-time.sleep(0.05)
-ls.write('Range 1,0') #this turns the heater off
-time.sleep(0.05)
-ls.write('CSET 1,A,1,0,2')# configure loop
-time.sleep(0.05)
-ls.write('TLIMIT 500')
 
 
 fig = plt.figure(constrained_layout = True)
