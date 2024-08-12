@@ -22,7 +22,7 @@ def get_parameters(f):
                 float(lines[3].split()[1]),#SweepTime
                 float(lines[4].split()[1]),#FreqWidth
                 float(lines[5].split()[1]),#SignalAmp
-                int(lines[6].split()[1]),#RampingStatus
+                int(lines[6].split()[1]),#Status
                 [lines[7].split()[1],lines[7].split()[2],lines[7].split()[3]],#PID paratmeters
                 int(lines[8].split()[1]),#Autoscale boolean
                 lines[9],#time scale
@@ -115,11 +115,11 @@ class TempController:
     def query(self,command):
         return self.instra.query(command)
     
-    def startramp(self, parameters,time,temp,f = parameter_file):
+    def startramp(self, parameters,time,temp,f):
         self.write('PID 1,'+ parameters[7][0]+','+ parameters[7][1]+',' + parameters[7][2])#this sets the setpoint to the final temp
         if temp - parameters[2] > -5:
             rate = (temp-self.pasttemp)/(time-self.pasttime)
-            if rate < .1 * parameters[0]:
+            if rate < .1 * parameters[0]:# if the ramp rate falls to 10% or less than the desired ramp rate, kill heating assuming, the final temp is being approached
                 kill_heating(f)
                 self.stopramp(parameters)
                 return None # exit function
