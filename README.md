@@ -6,4 +6,6 @@ DataAcquisition folder should have everything that you will need in order to run
 
 There are assorted tutorials and SOPs available in this google drive folder: https://drive.google.com/drive/folders/1NYYNq_5F3oWOElOhdVvI6J9_ZByNiAqg?usp=sharing
 
+There is much of the needed raw data in this googel drive folder: https://drive.google.com/drive/folders/18BDpU2QtdzLj_x8A9XUq8sjuyn5E4JaA?usp=sharing
+
 If you need any raw data or have any questions, please reach out to me, Blake Wendland at blakewendland@gmail.com or wendl198@umn.edu
