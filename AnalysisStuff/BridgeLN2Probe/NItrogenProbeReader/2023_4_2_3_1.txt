@@ -1,0 +1,46 @@
+probe_path = 'C:/Users/blake/Documents/VSCode/Python/Greven/RawData/2023_4_2_3.dat'
+
+
+jump_time_start = 90.3
+jump_time_end = 91.4
+
+x_amp = -.50 +.43 - 0.005#final - intial
+y_amp = -12.99 + 13.015 -.005
+
+
+intial_cal_start_time = 46.8
+intial_cal_end_time = 48.4
+final_cal_start_time = 313.7
+final_cal_end_time = 315.2
+
+run_start_time = 52
+run_stop_time = 275.5
+
+lower_temp = 76
+
+xstep1 = 25
+
+
+
+
+probe_path = 'C:/Users/blake/Documents/VSCode/Python/Greven/RawData/2023_4_2_3.dat'
+
+
+jump_time_start = 90.3
+jump_time_end = 91.4
+
+x_amp = 0
+y_amp = 0
+
+
+intial_cal_start_time = 313.7
+intial_cal_end_time = 315.2
+final_cal_start_time = 490
+final_cal_end_time = 495
+
+run_start_time = 318.2
+run_stop_time = 489
+
+lower_temp = 76
+
+xstep1 = 25
