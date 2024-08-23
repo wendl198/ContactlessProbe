@@ -85,9 +85,9 @@ class TempController:
     
     def startramp(self, parameters,time,temp,f):
         self.write('PID 1,'+ parameters[7][0]+','+ parameters[7][1]+',' + parameters[7][2])#this sets the setpoint to the final temp
-        if temp - parameters[2] > -5:
+        if temp - float(parameters[2]) > -5:
             rate = (temp-self.pasttemp)/(time-self.pasttime)
-            if rate < .1 * parameters[0]:# if the ramp rate falls to 10% or less than the desired ramp rate, kill heating assuming, the final temp is being approached
+            if rate < .1 * float(parameters[0]):# if the ramp rate falls to 10% or less than the desired ramp rate, kill heating assuming, the final temp is being approached
                 kill_heating(f)
                 self.stopramp(parameters)
                 return None # exit function

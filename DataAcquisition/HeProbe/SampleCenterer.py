@@ -73,6 +73,7 @@ def intiate_scan(instrument,start_freq,end_freq,signal_amp,scan_time,repeat,wait
 
 def full_lorenzian_fit_with_skew(fs, f0,Q,Smax,A1,A2,A3):#fs is the data, f0 is the resonance freq
     return A1 + A2*fs + (Smax+A3*fs)/np.sqrt(1+4*(Q*(fs/f0-1))**2)#this is eq 10 from Measurement of resonant frequency and quality factor of microwave resonators: Comparison of methods Paul J. Petersan; Steven M. Anlage
+
 class TempController:
     def __init__(self,GPIBport,parameters, max_power = 16, waittime = 0.05):
         self.instra = rm.open_resource('GPIB0::'+str(GPIBport)+'::INSTR')
@@ -108,9 +109,9 @@ class TempController:
     
     def startramp(self, parameters,time,temp,f):
         self.write('PID 1,'+ parameters[7][0]+','+ parameters[7][1]+',' + parameters[7][2])#this sets the setpoint to the final temp
-        if temp - parameters[2] > -5:
+        if temp - float(parameters[2]) > -5:
             rate = (temp-self.pasttemp)/(time-self.pasttime)
-            if rate < .1 * parameters[0]:# if the ramp rate falls to 10% or less than the desired ramp rate, kill heating assuming, the final temp is being approached
+            if rate < .1 * float(parameters[0]):# if the ramp rate falls to 10% or less than the desired ramp rate, kill heating assuming, the final temp is being approached
                 kill_heating(f)
                 self.stopramp(parameters)
                 return None # exit function
